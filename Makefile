@@ -26,8 +26,11 @@ ${FILE}.o: ${FILE}.c
 ${TARGET_BIN}: ${TARGET_OBJS}
 	gcc $< -o $@
 
+# Apparently, Nvidia libraries don't like -pie; so, we are forced
+# to link the kernel loader (which is really just emulating the lower
+# half) to a fixed address (0x800000)
 ${KERNEL_LOADER_BIN}: ${KERNEL_LOADER_OBJS}
-	gcc -Wl,-Ttext-segment -Wl,0x800000 -static $^ -o $@
+	nvcc -Xlinker -Ttext-segment -Xlinker 0x800000 --cudart shared $^ -o $@ -lcuda
 
 vi vim:
 	vim ${FILE}.c
