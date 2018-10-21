@@ -37,9 +37,13 @@ application and its dependencies become part of the logical upper half.
 Finally, the lower half passes control to the target (CUDA) application
 through the second ld.so.
 
-By putting trampolines around the second ld.so's mmap and sbrk functions,
-we can control and monitor the memory regions it loads, including a
-second heap.
+By putting a trampoline around the second ld.so's mmap function, we can
+control and monitor the memory regions it loads. Similarly, a trampoline
+around the second ld.so's sbrk function enables us to have two separate
+heaps -- one for the the upper half, and one for the lower half. Note
+that the there's just one "real" heap for the process and that is what
+the kernel provided to the lower half's trivial executable when it was
+started.
 
 ### Runtime logic
 
@@ -73,6 +77,10 @@ Finally, we call `setcontext()` to jump back to the upper half.
 
 ## TODO
 
+ - [ ] Add wrappers/trampolines around mmap/sbrk functions for upper half's
+       libc. In addition to lower half's ld.so, lower half's libc can also
+       make these calls. We want to keep track of mmaps and "virtualize"
+       the sbrk calls in order to force it to use the lower half's heap.
  - [ ] Add a dlsym-like API in the lower half to figure out addresses of CUDA API
  - [ ] Test calling a CUDA function (through upper-half's dlsym API) from the upper half
  - [ ] Add checkpoint-restart logic rom mini-DMTCP assignment
