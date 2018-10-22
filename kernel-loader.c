@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 
 #include "common.h"
+#include "ckpt-restart.h"
 #include "custom-loader.h"
 #include "kernel-loader.h"
 #include "procmapsutils.h"
@@ -34,7 +35,9 @@ static void* getEntryPoint(DynObjInfo_t );
 static void patchAuxv(ElfW(auxv_t) *, unsigned long ,
                       unsigned long , unsigned long );
 static int writeLhInfoToFile();
+static int setupLowerHalfInfo();
 static void printUsage();
+static void printRestartUsage();
 
 // Global functions
 
@@ -50,12 +53,8 @@ runRtld()
 
   // Load RTLD (ld.so)
   char *ldname  = getenv("TARGET_LD");
-  if (!ldname) {
-    printUsage();
-    return;
-  }
   char *uhpreload = getenv("UH_PRELOAD");
-  if (!uhpreload) {
+  if (!ldname || !uhpreload) {
     printUsage();
     return;
   }
@@ -97,23 +96,11 @@ runRtld()
     exit(-1);
   }
 
-  // Everything is ready, let's set up the info struct
-  lhInfo.lhSbrk = &sbrkWrapper;
-  lhInfo.lhMmap = &mmapWrapper;
-  lhInfo.lhDlsym = &lhDlsym;
-  lhInfo.lhMmapListFptr = &getMmappedList;
-  if (syscall(SYS_arch_prctl, ARCH_GET_FS, &lhInfo.lhFsAddr) < 0) {
-    DLOG(ERROR, "Could not retrieve lower half's fs. Error: %s. Exiting...\n",
-         strerror(errno));
-    exit(-1);
-  }
-
-  // FIXME: We'll just write out the lhInfo object to a file; the upper half
-  // will read this file to figure out the wrapper addresses. This is ugly
-  // but will work for now.
-  rc = writeLhInfoToFile();
+  // Everything is ready, let's set up the lower-half info struct for the upper
+  // half to read from
+  rc = setupLowerHalfInfo();
   if (rc < 0) {
-    DLOG(ERROR, "Error writing address of lhinfo to file. Exiting...\n");
+    DLOG(ERROR, "Failed to set up lhinfo for the upper half. Exiting...\n");
     exit(-1);
   }
 
@@ -132,6 +119,18 @@ main(int argc, char **argv)
     printUsage();
     return -1;
   }
+  if (strstr(argv[1], "--restore")) {
+    if (argc < 3) {
+      printRestartUsage();
+      return -1;
+    }
+    int rc = setupLowerHalfInfo();
+    if (rc < 0) {
+      DLOG(ERROR, "Failed to set up lhinfo for the upper half. Exiting...\n");
+      exit(-1);
+    }
+    restoreCheckpoint(argv[2]);
+  }
   runRtld();
   return 0;
 }
@@ -145,6 +144,12 @@ printUsage()
   fprintf(stderr, "Usage: UH_PRELOAD=/path/to/libupperhalfwrappers.so "
           "TARGET_LD=/path/to/ld.so ./kernel-loader "
           "<target-application> [application arguments ...]\n");
+}
+
+static void
+printRestartUsage()
+{
+  fprintf(stderr, "Usage: ./kernel-loader --restore /path/to/ckpt.img\n");
 }
 
 // Returns the /proc/self/stat entry in the out string (of length len)
@@ -495,4 +500,29 @@ writeLhInfoToFile()
   }
   close(fd);
   return rc;
+}
+
+// Sets up lower-half info struct for the upper half to read from. Returns 0
+// on success, -1 otherwise
+static int
+setupLowerHalfInfo()
+{
+  lhInfo.lhSbrk = &sbrkWrapper;
+  lhInfo.lhMmap = &mmapWrapper;
+  lhInfo.lhDlsym = &lhDlsym;
+  lhInfo.lhMmapListFptr = &getMmappedList;
+  if (syscall(SYS_arch_prctl, ARCH_GET_FS, &lhInfo.lhFsAddr) < 0) {
+    DLOG(ERROR, "Could not retrieve lower half's fs. Error: %s. Exiting...\n",
+         strerror(errno));
+    return -1;
+  }
+  // FIXME: We'll just write out the lhInfo object to a file; the upper half
+  // will read this file to figure out the wrapper addresses. This is ugly
+  // but will work for now.
+  int rc = writeLhInfoToFile();
+  if (rc < 0) {
+    DLOG(ERROR, "Error writing address of lhinfo to file. Exiting...\n");
+    return -1;
+  }
+  return 0;
 }

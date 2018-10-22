@@ -15,6 +15,7 @@
 #include "common.h"
 #include "ckpt-restart.h"
 #include "procmapsutils.h"
+#include "upper-half-wrappers.h"
 #include "utils.h"
 
 const char *PROC_SELF_MAPS = "/proc/self/maps";
@@ -22,13 +23,33 @@ const char *CKPT_IMG = "./ckpt.img";
 
 static CkptOrRestore_t state = CKPT;
 
+static void checkpointHandler(int , siginfo_t *, void *);
 static int skipRegion(const Area *);
 static void checkpointMemory(int );
 static ssize_t writeMemoryRegion(int , const Area *);
 static void saveSp(void **sp);
+static void saveFs(void **fs);
 static void saveCkptState(int , const CkptRestartState_t *);
 
+__attribute__ ((constructor))
 void
+installCkptHandler()
+{
+  struct sigaction sig_action;
+  memset(&sig_action, 0, sizeof(sig_action));
+  sig_action.sa_sigaction = checkpointHandler;
+  sig_action.sa_flags = SA_RESTART | SA_SIGINFO;
+  sigemptyset(&sig_action.sa_mask);
+  int rc = sigaction(CKPT_SIGNAL, &sig_action, 0);
+  if (rc < 0) {
+    DLOG(ERROR, "Failed to install checkpoint signal handler. Error: %s. "
+         "Exiting...\n", strerror(errno));
+    exit(-1);
+  }
+}
+
+// Local functions
+static void
 checkpointHandler(int signal, siginfo_t *info, void *ctx)
 {
   CkptRestartState_t st = {0};
@@ -49,27 +70,14 @@ checkpointHandler(int signal, siginfo_t *info, void *ctx)
     state = RESTORE;
     // Save stack pointer in st
     saveSp(&st.sp);
+    saveFs(&st.fsAddr);
     saveCkptState(ckptfd, &st);
     checkpointMemory(ckptfd);
   } else {
    // We are running the restart code
-   state = CKPT; // Reset it again for subsequent checkpoints
+   state = CKPT; // Reset state again for subsequent checkpoints
+   reset_wrappers();
    return;
-  }
-}
-
-__attribute__ ((constructor))
-void installCkptHandler()
-{
-  struct sigaction sig_action;
-  memset(&sig_action, 0, sizeof(sig_action));
-  sig_action.sa_sigaction = checkpointHandler;
-  sig_action.sa_flags = SA_RESTART | SA_SIGINFO;
-  sigemptyset(&sig_action.sa_mask);
-  int rc = sigaction(CKPT_SIGNAL, &sig_action, 0);
-  if (rc < 0) {
-    DLOG(ERROR, "Failed to install checkpoint signal handler. Error: %s\n",
-         strerror(errno));
   }
 }
 
@@ -139,6 +147,17 @@ saveSp(void **sp)
 #else // if defined(__i386__) || defined(__x86_64__)
 # error "assembly instruction not translated"
 #endif // if defined(__i386__) || defined(__x86_64__)
+}
+
+static void
+saveFs(void **fs)
+{
+  assert(fs);
+  int rc = syscall(SYS_arch_prctl, ARCH_GET_FS, *fs);
+  if (rc < 0) {
+    DLOG(ERROR, "Could not retrieve fs register value. Error: %s\n",
+         strerror(errno));
+  }
 }
 
 static void

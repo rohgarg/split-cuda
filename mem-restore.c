@@ -17,6 +17,7 @@
 #include "procmapsutils.h"
 #include "utils.h"
 
+static int restoreFs(void *fs);
 static int restoreMemory(int );
 static int restoreMemoryRegion(int , const Area* );
 
@@ -32,8 +33,20 @@ restoreCheckpoint(const char *ckptImg)
   readAll(ckptfd, &st, sizeof st);
   restoreMemory(ckptfd);
   close(ckptfd);
+  restoreFs(st.fsAddr);
   // This never returns
   setcontext(&st.ctx);
+}
+
+static int
+restoreFs(void *fs)
+{
+  int rc = syscall(SYS_arch_prctl, ARCH_SET_FS, (uintptr_t)fs);
+  if (rc < 0) {
+    DLOG(ERROR, "Failed to restore fs for restart. Error: %s\n",
+         strerror(errno));
+    return -1;
+  }
 }
 
 static int
