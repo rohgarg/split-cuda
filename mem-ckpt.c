@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <link.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,15 +14,52 @@
 #include <sys/stat.h>
 
 #include "common.h"
+#include "ckpt-restart.h"
 #include "procmapsutils.h"
 #include "utils.h"
 
 const char *PROC_SELF_MAPS = "/proc/self/maps";
+const char *CKPT_IMG = "./ckpt.img";
+
+static CkptOrRestore_t state = CKPT;
 
 static int skipRegion(const Area *);
+static void checkpointMemory(int );
 static ssize_t writeMemoryRegion(int , const Area *);
+static void saveSp(void **sp);
+static void saveCkptState(int , const CkptRestartState_t *);
 
 void
+checkpointHandler(int signal, siginfo_t *info, void *ctx)
+{
+  CkptRestartState_t st = {0};
+  int ckptfd = open(CKPT_IMG, O_WRONLY | O_CREAT, 0644);
+  if (ckptfd < 0) {
+    DLOG(ERROR, "Failed to open ckpt image for saving state. Error: %s\n",
+         strerror(errno));
+    return;
+  }
+  int rc = getcontext(&st.ctx);
+  if (rc < 0) {
+    DLOG(ERROR, "Failed to get context for the process. Error: %s\n",
+         strerror(errno));
+    return;
+  }
+  if (state == CKPT) {
+    // Change the state before copying memory
+    state = RESTORE;
+    // Save stack pointer in st
+    saveSp(&st.sp);
+    saveCkptState(ckptfd, &st);
+    checkpointMemory(ckptfd);
+  } else {
+   // We are running the restart code
+   state = CKPT; // Reset it again for subsequent checkpoints
+   return;
+  }
+}
+
+static void
 checkpointMemory(int ckptfd)
 {
   Area area;
@@ -71,4 +109,30 @@ writeMemoryRegion(int fd, const Area *area)
   rc += writeAll(fd, area, sizeof *area);
   rc += writeAll(fd, area->addr, area->size);
   return rc;
+}
+
+static void
+saveSp(void **sp)
+{
+#if defined(__i386__) || defined(__x86_64__)
+  asm volatile (CLEAN_FOR_64_BIT(mov %%esp, %0)
+                  : "=g" (*sp)
+                    : : "memory");
+#elif defined(__arm__) || defined(__aarch64__)
+  asm volatile ("mov %0,sp"
+                : "=r" (*sp)
+                : : "memory");
+#else // if defined(__i386__) || defined(__x86_64__)
+# error "assembly instruction not translated"
+#endif // if defined(__i386__) || defined(__x86_64__)
+}
+
+static void
+saveCkptState(int ckptfd, const CkptRestartState_t *st)
+{
+  int rc = writeAll(ckptfd, st, sizeof *st);
+  if (rc < sizeof *st) {
+    DLOG(ERROR, "Failed to write out ckpt-restart state. Error: %s\n",
+         strerror(errno));
+  }
 }
