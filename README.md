@@ -84,4 +84,5 @@ Finally, we call `setcontext()` to jump back to the upper half.
  - [x] Add a dlsym-like API in the lower half to figure out addresses of CUDA API
  - [x] Test calling a CUDA function (through lower-half's dlsym API) from the
        upper half
- - [ ] Add checkpoint-restart logic from mini-DMTCP assignment
+ - [x] Add checkpoint-restart logic from mini-DMTCP assignment
+ - [ ] Test full checkpoint-restart functionality
