@@ -316,7 +316,7 @@ deepCopyStack(void *newStack, const void *origStack, size_t len,
     newEnv[i] = (char*)((uintptr_t)newEnv + (uintptr_t)envDelta);
   }
 
-  // Change the UH_PRELOAD to LD_PRELOAD. This way, upper half's ld.so
+  // Change "UH_PRELOAD" to "LD_PRELOAD". This way, upper half's ld.so
   // will preload the upper half wrapper library.
   char **newEnvPtr = (char**)newEnv;
   for (; *newEnvPtr; newEnvPtr++) {
@@ -326,8 +326,6 @@ deepCopyStack(void *newStack, const void *origStack, size_t len,
       break;
     }
   }
-  // off_t envDelta = (uintptr_t)getenv("UH_PRELOAD") - (uintptr_t)origEnv;
-  // newArgv[k] = (char*)((uintptr_t)newArgv + (uintptr_t)argvDelta);
 
   // The aux vector, which we would have inherited from the original stack,
   // has entries that correspond to the kernel loader binary. In particular,
