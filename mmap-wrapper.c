@@ -2,6 +2,9 @@
 #include <stddef.h>
 #include <sys/mman.h>
 
+#include "common.h"
+#include "kernel-loader.h"
+
 #define MMAP_OFF_HIGH_MASK ((-(4096ULL << 1) << (8 * sizeof (off_t) - 1)))
 #define MMAP_OFF_LOW_MASK  (4096ULL - 1)
 #define MMAP_OFF_MASK (MMAP_OFF_HIGH_MASK | MMAP_OFF_LOW_MASK)

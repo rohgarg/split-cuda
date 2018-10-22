@@ -16,7 +16,10 @@
 
 #include "common.h"
 #include "custom-loader.h"
+#include "kernel-loader.h"
 #include "procmapsutils.h"
+
+LowerHalfInfo_t lhInfo;
 
 // Local function declarations
 static void getProcStatField(enum Procstat_t , char *, size_t );
@@ -30,6 +33,7 @@ static int insertTrampoline(void* , void* );
 static void* getEntryPoint(DynObjInfo_t );
 static void patchAuxv(ElfW(auxv_t) *, unsigned long ,
                       unsigned long , unsigned long );
+static int writeLhInfoToFile();
 static void printUsage();
 
 // Global functions
@@ -82,6 +86,19 @@ runRtld()
   rc = insertTrampoline(ldso.sbrkAddr, &sbrkWrapper);
   if (rc < 0) {
     DLOG(ERROR, "Error inserting trampoline for sbrk. Exiting...\n");
+    exit(-1);
+  }
+
+  // Everything is ready, let's set up the info struct
+  lhInfo.lhSbrk = &sbrkWrapper;
+  lhInfo.lhMmap = &mmapWrapper;
+
+  // FIXME: We'll just write out the lhInfo object to a file; the upper half
+  // will read this file to figure out the wrapper addresses. This is ugly
+  // but will work for now.
+  rc = writeLhInfoToFile();
+  if (rc < 0) {
+    DLOG(ERROR, "Error writing address of lhinfo to file. Exiting...\n");
     exit(-1);
   }
 
@@ -191,6 +208,7 @@ deepCopyStack(void *newStack, const void *origStack, size_t len,
 {
   // This function assumes that this env var is set.
   assert(getenv("TARGET_LD"));
+  assert(getenv("UH_PRELOAD"));
 
   // Return early if any pointer is NULL
   if (!newStack || !origStack ||
@@ -281,6 +299,19 @@ deepCopyStack(void *newStack, const void *origStack, size_t len,
     off_t envDelta = (uintptr_t)origEnv[i] - (uintptr_t)origEnv;
     newEnv[i] = (char*)((uintptr_t)newEnv + (uintptr_t)envDelta);
   }
+
+  // Change the UH_PRELOAD to LD_PRELOAD. This way, upper half's ld.so
+  // will preload the upper half wrapper library.
+  char **newEnvPtr = (char**)newEnv;
+  for (; *newEnvPtr; newEnvPtr++) {
+    if (strstr(*newEnvPtr, "UH_PRELOAD")) {
+      *newEnvPtr[0] = 'L';
+      *newEnvPtr[1] = 'D';
+      break;
+    }
+  }
+  // off_t envDelta = (uintptr_t)getenv("UH_PRELOAD") - (uintptr_t)origEnv;
+  // newArgv[k] = (char*)((uintptr_t)newArgv + (uintptr_t)argvDelta);
 
   // The aux vector, which we would have inherited from the original stack,
   // has entries that correspond to the kernel loader binary. In particular,
@@ -427,4 +458,24 @@ static void*
 getEntryPoint(DynObjInfo_t info)
 {
   return info.entryPoint;
+}
+
+// Writes out the lhinfo global object to a file. Returns 0 on success,
+// -1 on failure.
+static int
+writeLhInfoToFile()
+{
+  int fd = open("addr.bin", O_WRONLY | O_CREAT);
+  if (fd < 0) {
+    DLOG(ERROR, "Could not create addr.bin file. Error: %s", strerror(errno));
+    return -1;
+  }
+
+  int rc = write(fd, &lhInfo, sizeof(lhInfo));
+  if (rc < sizeof(lhInfo)) {
+    DLOG(ERROR, "Wrote fewer bytes than expected to addr.bin. Error: %s",
+         strerror(errno));
+    return -1;
+  }
+  return 0;
 }

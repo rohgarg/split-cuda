@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 
 #include "common.h"
+#include "kernel-loader.h"
 
 static void *__curbrk;
 static void *__endOfHeap = 0;
