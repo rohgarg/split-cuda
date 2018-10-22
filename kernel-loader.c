@@ -96,6 +96,11 @@ runRtld()
   lhInfo.lhSbrk = &sbrkWrapper;
   lhInfo.lhMmap = &mmapWrapper;
   lhInfo.lhDlsym = &lhDlsym;
+  if (syscall(SYS_arch_prctl, ARCH_GET_FS, &lhInfo.lhFsAddr) < 0) {
+    DLOG(ERROR, "Could not retrieve lower half's fs. Error: %s. Exiting...\n",
+         strerror(errno));
+    exit(-1);
+  }
 
   // FIXME: We'll just write out the lhInfo object to a file; the upper half
   // will read this file to figure out the wrapper addresses. This is ugly

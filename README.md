@@ -82,6 +82,6 @@ Finally, we call `setcontext()` to jump back to the upper half.
        make these calls. We want to keep track of mmaps and "virtualize"
        the sbrk calls in order to force it to use the lower half's heap.
  - [x] Add a dlsym-like API in the lower half to figure out addresses of CUDA API
- - [ ] Test calling a CUDA function (through upper-half's dlsym API) from the
+ - [x] Test calling a CUDA function (through upper-half's dlsym API) from the
        upper half
  - [ ] Add checkpoint-restart logic from mini-DMTCP assignment

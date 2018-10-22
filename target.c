@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <cuda.h>
+#include "upper-half-cuda-wrappers.h"
+
 int main(int argc, char **argv)
 {
   int i = 0;
@@ -11,6 +14,7 @@ int main(int argc, char **argv)
     }
     printf("\n");
   }
+  printf("cuInit returned: %d\n", (int)cuInit(0));
   while (1) {
     printf("%d ", i);
     fflush(stdout);

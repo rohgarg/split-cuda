@@ -3,6 +3,9 @@
 
 #include <link.h>
 #include <string.h>
+#include <asm/prctl.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
 
 // Logging levels
 #define NOISE 3 // Noise!
@@ -61,9 +64,24 @@ typedef struct __LowerHalfInfo
   void *lhSbrk;
   void *lhMmap;
   void *lhDlsym;
+  unsigned long lhFsAddr;
 } LowerHalfInfo_t;
 
 extern LowerHalfInfo_t lhInfo;
+
+// Helper macro to be used whenever jumping into the lower half from the
+// upper half.
+#define JUMP_TO_LOWER_HALF(lhFs)                                               \
+  do {                                                                         \
+  unsigned long upperHalfFs;                                                   \
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &upperHalfFs);                          \
+  syscall(SYS_arch_prctl, ARCH_SET_FS, lhFs);
+
+// Helper macro to be used whenever making a returning from the lower half to
+// the upper half.
+#define RETURN_TO_UPPER_HALF()                                                 \
+  syscall(SYS_arch_prctl, ARCH_SET_FS, &upperHalfFs);                          \
+  } while (0)
 
 #define LH_FILE_NAME "./addr.bin"
 
@@ -80,5 +98,6 @@ typedef enum __Cuda_Fncs {
 } Cuda_Fncs_t;
 
 void* lhDlsym(Cuda_Fncs_t type);
+typedef void* (*LhDlsym_t)(Cuda_Fncs_t type);
 
 #endif // ifndef COMMON_H

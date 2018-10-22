@@ -9,9 +9,10 @@
 #include <sys/types.h>
 
 #include "common.h"
+#include "upper-half-wrappers.h"
 
-static int initialized = 0;
-static void initialize_wrappers();
+int initialized = 0;
+
 static void readLhInfoAddr();
 
 LowerHalfInfo_t lhInfo = {0};
@@ -42,7 +43,7 @@ mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
   return lowerHalfMmapWrapper(addr, length, prot, flags, fd, offset);
 }
 
-static void
+void
 initialize_wrappers()
 {
   if (!initialized) {
