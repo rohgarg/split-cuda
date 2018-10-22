@@ -54,6 +54,11 @@ runRtld()
     printUsage();
     return;
   }
+  char *uhpreload = getenv("UH_PRELOAD");
+  if (!uhpreload) {
+    printUsage();
+    return;
+  }
 
   DynObjInfo_t ldso = safeLoadLib(ldname);
   if (ldso.baseAddr == NULL || ldso.entryPoint == NULL) {
@@ -137,7 +142,8 @@ main(int argc, char **argv)
 static void
 printUsage()
 {
-  fprintf(stderr, "Usage: TARGET_LD=/path/to/ld.so ./kernel-loader "
+  fprintf(stderr, "Usage: UH_PRELOAD=/path/to/libupperhalfwrappers.so "
+          "TARGET_LD=/path/to/ld.so ./kernel-loader "
           "<target-application> [application arguments ...]\n");
 }
 
