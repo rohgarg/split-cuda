@@ -60,8 +60,25 @@ typedef struct __LowerHalfInfo
 {
   void *lhSbrk;
   void *lhMmap;
+  void *lhDlsym;
 } LowerHalfInfo_t;
 
 extern LowerHalfInfo_t lhInfo;
+
+#define LH_FILE_NAME "./addr.bin"
+
+#define FOREACH_FNC(MACRO) \
+    MACRO(cuInit)
+
+#define GENERATE_ENUM(ENUM) Cuda_Fnc_##ENUM,
+#define GENERATE_FNC_PTR(FNC) &FNC,
+
+typedef enum __Cuda_Fncs {
+  Cuda_Fnc_NULL,
+  FOREACH_FNC(GENERATE_ENUM)
+  Cuda_Fnc_Invalid,
+} Cuda_Fncs_t;
+
+void* lhDlsym(Cuda_Fncs_t type);
 
 #endif // ifndef COMMON_H

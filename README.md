@@ -81,7 +81,7 @@ Finally, we call `setcontext()` to jump back to the upper half.
        libc. In addition to lower half's ld.so, lower half's libc can also
        make these calls. We want to keep track of mmaps and "virtualize"
        the sbrk calls in order to force it to use the lower half's heap.
- - [ ] Add a dlsym-like API in the lower half to figure out addresses of CUDA API
+ - [x] Add a dlsym-like API in the lower half to figure out addresses of CUDA API
  - [ ] Test calling a CUDA function (through upper-half's dlsym API) from the
        upper half
- - [ ] Add checkpoint-restart logic rom mini-DMTCP assignment
+ - [ ] Add checkpoint-restart logic from mini-DMTCP assignment

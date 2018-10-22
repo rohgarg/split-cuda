@@ -61,6 +61,7 @@ runRtld()
     return;
   }
 
+  DLOG(INFO, "New ld.so loaded at: %p\n", ldso.baseAddr);
   ldso_entrypoint = getEntryPoint(ldso);
 
   // Create new stack region to be used by RTLD
@@ -69,6 +70,7 @@ runRtld()
     DLOG(ERROR, "Error creating new stack for RTLD. Exiting...\n");
     exit(-1);
   }
+  DLOG(INFO, "New stack mapped at: %p\n", (void*)ROUND_DOWN(newStack));
 
   // Create new heap region to be used by RTLD
   void *newHeap = createNewHeapForRtld(&ldso);
@@ -76,6 +78,7 @@ runRtld()
     DLOG(ERROR, "Error creating new heap for RTLD. Exiting...\n");
     exit(-1);
   }
+  DLOG(INFO, "New heap mapped at: %p\n", newHeap);
 
   setEndOfHeap(newHeap + PAGE_SIZE);
   rc = insertTrampoline(ldso.mmapAddr, &mmapWrapper);
@@ -92,6 +95,7 @@ runRtld()
   // Everything is ready, let's set up the info struct
   lhInfo.lhSbrk = &sbrkWrapper;
   lhInfo.lhMmap = &mmapWrapper;
+  lhInfo.lhDlsym = &lhDlsym;
 
   // FIXME: We'll just write out the lhInfo object to a file; the upper half
   // will read this file to figure out the wrapper addresses. This is ugly
@@ -305,8 +309,8 @@ deepCopyStack(void *newStack, const void *origStack, size_t len,
   char **newEnvPtr = (char**)newEnv;
   for (; *newEnvPtr; newEnvPtr++) {
     if (strstr(*newEnvPtr, "UH_PRELOAD")) {
-      *newEnvPtr[0] = 'L';
-      *newEnvPtr[1] = 'D';
+      (*newEnvPtr)[0] = 'L';
+      (*newEnvPtr)[1] = 'D';
       break;
     }
   }
@@ -465,17 +469,20 @@ getEntryPoint(DynObjInfo_t info)
 static int
 writeLhInfoToFile()
 {
-  int fd = open("addr.bin", O_WRONLY | O_CREAT);
+  int rc = 0;
+
+  int fd = open(LH_FILE_NAME, O_WRONLY | O_CREAT, 0644);
   if (fd < 0) {
     DLOG(ERROR, "Could not create addr.bin file. Error: %s", strerror(errno));
     return -1;
   }
 
-  int rc = write(fd, &lhInfo, sizeof(lhInfo));
+  rc = write(fd, &lhInfo, sizeof(lhInfo));
   if (rc < sizeof(lhInfo)) {
     DLOG(ERROR, "Wrote fewer bytes than expected to addr.bin. Error: %s",
          strerror(errno));
-    return -1;
+    rc = -1;
   }
-  return 0;
+  close(fd);
+  return rc;
 }
