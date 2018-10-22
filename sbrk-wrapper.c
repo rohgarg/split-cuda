@@ -31,6 +31,8 @@ sbrkWrapper(intptr_t increment)
 {
   void *oldbrk;
 
+  DLOG(NOISE, "LH: sbrk wrapper called with %p\n", increment);
+
   if (__curbrk == NULL)
     if (brk (0) < 0)
       return (void *) -1;

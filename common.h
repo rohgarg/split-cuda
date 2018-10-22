@@ -2,6 +2,7 @@
 #define COMMON_H
 
 #include <link.h>
+#include <stdio.h>
 #include <string.h>
 #include <asm/prctl.h>
 #include <sys/prctl.h>
