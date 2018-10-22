@@ -4,7 +4,7 @@ RTLD_PATH=/lib64/ld-2.27.so
 
 KERNEL_LOADER_OBJS=${FILE}.o procmapsutils.o custom-loader.o mmap-wrapper.o sbrk-wrapper.o cuda-lh-if.o mem-restore.o utils.o
 TARGET_OBJS=target.o
-TARGET_PRELOAD_LIB_OBJS=upper-half-wrappers.o upper-half-cuda-wrappers.o mem-ckpt.o utils.o
+TARGET_PRELOAD_LIB_OBJS=upper-half-wrappers.o upper-half-cuda-wrappers.o mem-ckpt.o procmapsutils.o utils.o
 
 CUDA_INCLUDE_PATH=/usr/local/cuda/include/
 

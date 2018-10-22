@@ -360,8 +360,11 @@ createNewStackForRtld(const DynObjInfo_t *info)
   getStackRegion(&stack);
 
   // 1. Allocate new stack region
-  void *newStack = mmap(NULL, stack.size, PROT_READ | PROT_WRITE,
-                        MAP_GROWSDOWN | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  // We go through the mmap wrapper function to ensure that this gets added
+  // to the list of upper half regions to be checkpointed.
+  void *newStack = mmapWrapper(NULL, stack.size, PROT_READ | PROT_WRITE,
+                               MAP_GROWSDOWN | MAP_PRIVATE | MAP_ANONYMOUS,
+                               -1, 0);
   if (newStack == MAP_FAILED) {
     DLOG(ERROR, "Failed to mmap new stack region: %s\n", strerror(errno));
     return NULL;
@@ -410,8 +413,10 @@ createNewStackForRtld(const DynObjInfo_t *info)
 static void*
 createNewHeapForRtld(const DynObjInfo_t *info)
 {
-  void *addr = mmap(0, PAGE_SIZE, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  // We go through the mmap wrapper function to ensure that this gets added
+  // to the list of upper half regions to be checkpointed.
+  void *addr = mmapWrapper(0, PAGE_SIZE, PROT_READ | PROT_WRITE,
+                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (addr == MAP_FAILED) {
     DLOG(ERROR, "Failed to mmap region. Error: %s\n",
          strerror(errno));

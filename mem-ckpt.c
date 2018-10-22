@@ -27,9 +27,9 @@ static void checkpointHandler(int , siginfo_t *, void *);
 static int skipRegion(const Area *);
 static void checkpointMemory(int );
 static ssize_t writeMemoryRegion(int , const Area *);
-static void saveSp(void **sp);
-static void saveFs(void **fs);
-static void saveCkptState(int , const CkptRestartState_t *);
+static void getSp(void **sp);
+static void getFs(void *fs);
+static void checkpointContext(int , const CkptRestartState_t *);
 
 __attribute__ ((constructor))
 void
@@ -68,10 +68,9 @@ checkpointHandler(int signal, siginfo_t *info, void *ctx)
   if (state == CKPT) {
     // Change the state before copying memory
     state = RESTORE;
-    // Save stack pointer in st
-    saveSp(&st.sp);
-    saveFs(&st.fsAddr);
-    saveCkptState(ckptfd, &st);
+    getSp(&st.sp);
+    getFs(&st.fsAddr);
+    checkpointContext(ckptfd, &st);
     checkpointMemory(ckptfd);
   } else {
    // We are running the restart code
@@ -105,18 +104,24 @@ skipRegion(const Area *area)
   if (!(area->prot & PROT_READ))
     return 1;
 
-  if (!(strstr(area->name, "vvar") ||
-        strstr(area->name, "vdso") ||
-        strstr(area->name, "vsyscall")))
+  if (strstr(area->name, "vvar") ||
+      strstr(area->name, "vdso") ||
+      strstr(area->name, "vsyscall"))
     return 1;
 
   // Don't skip the regions mmaped by the upper half
   if (lhInfo.lhMmapListFptr) {
     GetMmappedListFptr_t fnc = (GetMmappedListFptr_t) lhInfo.lhMmapListFptr;
     int numUhRegions = 0;
-    void **array = fnc(&numUhRegions);
+    MmapInfo_t *array = fnc(&numUhRegions);
     for (int i = 0; i < numUhRegions; i++) {
-      if (array[i] == area->addr) {
+      // FIXME: Either the start addresses should match, or the end addresses
+      // should match. The problem is that the upper half might have split one
+      // large memory region into multiple by calling mprotect on subregions
+      // in the large region. We need to fix this.
+      if (array[i].addr == area->addr ||
+          ((uintptr_t)array[i].addr + array[i].len) <= (uintptr_t)area->endAddr)
+      {
         return 0;
       }
     }
@@ -134,7 +139,7 @@ writeMemoryRegion(int fd, const Area *area)
 }
 
 static void
-saveSp(void **sp)
+getSp(void **sp)
 {
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %%esp, %0)
@@ -150,10 +155,10 @@ saveSp(void **sp)
 }
 
 static void
-saveFs(void **fs)
+getFs(void *fs)
 {
   assert(fs);
-  int rc = syscall(SYS_arch_prctl, ARCH_GET_FS, *fs);
+  int rc = syscall(SYS_arch_prctl, ARCH_GET_FS, fs);
   if (rc < 0) {
     DLOG(ERROR, "Could not retrieve fs register value. Error: %s\n",
          strerror(errno));
@@ -161,7 +166,7 @@ saveFs(void **fs)
 }
 
 static void
-saveCkptState(int ckptfd, const CkptRestartState_t *st)
+checkpointContext(int ckptfd, const CkptRestartState_t *st)
 {
   int rc = writeAll(ckptfd, st, sizeof *st);
   if (rc < sizeof *st) {

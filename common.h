@@ -69,6 +69,12 @@ typedef struct __LowerHalfInfo
   void *lhMmapListFptr;
 } LowerHalfInfo_t;
 
+typedef struct __MmapInfo
+{
+  void *addr;
+  size_t len;
+} MmapInfo_t;
+
 extern LowerHalfInfo_t lhInfo;
 
 // Helper macro to be used whenever jumping into the lower half from the
@@ -103,7 +109,7 @@ void* lhDlsym(Cuda_Fncs_t type);
 typedef void* (*LhDlsym_t)(Cuda_Fncs_t type);
 
 
-void** getMmappedList(int *num);
-typedef void** (*GetMmappedListFptr_t)(int *num);
+MmapInfo_t* getMmappedList(int *num);
+typedef MmapInfo_t* (*GetMmappedListFptr_t)(int *num);
 
 #endif // ifndef COMMON_H

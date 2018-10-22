@@ -15,16 +15,16 @@
 //  2. Remove region from list when the application calls munmap
 #define MAX_TRACK   1000
 static int numRegions = 0;
-static void *addresses[MAX_TRACK] = {0};
+static MmapInfo_t mmaps[MAX_TRACK] = {0};
 
 // Returns a pointer to the array of mmap-ed regions
 // Sets num to the number of valid items in the array
-void **
+MmapInfo_t*
 getMmappedList(int *num)
 {
   if (!num) return NULL;
   *num = numRegions;
-  return addresses;
+  return mmaps;
 }
 
 void*
@@ -39,7 +39,8 @@ mmapWrapper(void *addr, size_t length, int prot,
   }
   ret = _real_mmap(addr, length, prot, flags, fd, offset);
   if (ret != MAP_FAILED) {
-    addresses[numRegions] = ret;
+    mmaps[numRegions].addr = ret;
+    mmaps[numRegions].len = length;
     numRegions = (numRegions + 1) % MAX_TRACK;
   }
   return ret;
