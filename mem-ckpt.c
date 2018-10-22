@@ -4,7 +4,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <link.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,6 +55,21 @@ checkpointHandler(int signal, siginfo_t *info, void *ctx)
    // We are running the restart code
    state = CKPT; // Reset it again for subsequent checkpoints
    return;
+  }
+}
+
+__attribute__ ((constructor))
+void installCkptHandler()
+{
+  struct sigaction sig_action;
+  memset(&sig_action, 0, sizeof(sig_action));
+  sig_action.sa_sigaction = checkpointHandler;
+  sig_action.sa_flags = SA_RESTART | SA_SIGINFO;
+  sigemptyset(&sig_action.sa_mask);
+  int rc = sigaction(CKPT_SIGNAL, &sig_action, 0);
+  if (rc < 0) {
+    DLOG(ERROR, "Failed to install checkpoint signal handler. Error: %s\n",
+         strerror(errno));
   }
 }
 
