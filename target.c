@@ -11,7 +11,7 @@ main(int argc, char **argv)
 {
   int i = 0;
 
-  processArgs(argc, argv);
+  processArgs(argc, (const char**)argv);
 
   printf("cuInit returned: %d\n", (int)cuInit(0));
 
