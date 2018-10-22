@@ -66,6 +66,7 @@ typedef struct __LowerHalfInfo
   void *lhMmap;
   void *lhDlsym;
   unsigned long lhFsAddr;
+  void *lhMmapListFptr;
 } LowerHalfInfo_t;
 
 extern LowerHalfInfo_t lhInfo;
@@ -100,5 +101,9 @@ typedef enum __Cuda_Fncs {
 
 void* lhDlsym(Cuda_Fncs_t type);
 typedef void* (*LhDlsym_t)(Cuda_Fncs_t type);
+
+
+void** getMmappedList(int *num);
+typedef void** (*GetMmappedListFptr_t)(int *num);
 
 #endif // ifndef COMMON_H

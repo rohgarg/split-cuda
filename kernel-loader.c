@@ -96,6 +96,7 @@ runRtld()
   lhInfo.lhSbrk = &sbrkWrapper;
   lhInfo.lhMmap = &mmapWrapper;
   lhInfo.lhDlsym = &lhDlsym;
+  lhInfo.lhMmapListFptr = &getMmappedList;
   if (syscall(SYS_arch_prctl, ARCH_GET_FS, &lhInfo.lhFsAddr) < 0) {
     DLOG(ERROR, "Could not retrieve lower half's fs. Error: %s. Exiting...\n",
          strerror(errno));

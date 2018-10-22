@@ -72,3 +72,9 @@ readLhInfoAddr()
   unlink(LH_FILE_NAME);
   close(fd);
 }
+
+void
+reset_wrappers()
+{
+  initialized = 0;
+}
