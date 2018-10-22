@@ -8,12 +8,12 @@ possible experiment, without including the complexities of DMTCP.
 
 **The experiment:**
 
-1. Start application with two different "halves": the upper half
-   (with the application state), and the lower half (with the CUDA
+1. Start application with two separate "halves": an upper half
+   (with the application state), and a lower half (with the CUDA
    libraries)
 2. Make one simple CUDA call, which would force the CUDA libraries to
    initialize.
-3. Checkpoint the upper half and kill the process
+3. Checkpoint the upper half and kill the process.
 4. Start a new process (with a new lower half).
 5. Restore memory for the upper half.
 6. Call the simple CUDA call one more time from the upper half.
