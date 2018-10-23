@@ -475,7 +475,7 @@ insertTrampoline(void *from_addr, void *to_addr)
 
   // Now, do the patching
   memcpy(from_addr, asm_jump, sizeof(asm_jump));
-  memcpy((VA)from_addr + addr_offset, &to_addr, sizeof(&to_addr));
+  memcpy((VA)from_addr + addr_offset, (void*)&to_addr, sizeof(&to_addr));
 
   // Finally, remove the write permissions
   rc = mprotect(page_base, page_length, PROT_READ | PROT_EXEC);
@@ -483,6 +483,7 @@ insertTrampoline(void *from_addr, void *to_addr)
     DLOG(ERROR, "mprotect failed: %s\n", strerror(errno));
     return -1;
   }
+  return rc;
 }
 
 // This function returns the entry point of the ld.so executable given

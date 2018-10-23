@@ -169,6 +169,7 @@ get_symbol_offset(int fd, const char *ldname, const char *symbol)
       return symtab_entry.st_value;
     }
   }
+  return -1;
 }
 
 static void*

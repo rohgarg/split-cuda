@@ -27,11 +27,13 @@ sbrkWrapper(intptr_t increment)
 
   DLOG(NOISE, "LH: sbrk called with 0x%lx\n", increment);
 
-  if (__curbrk == NULL)
-    if (brk (0) < 0)
+  if (__curbrk == NULL) {
+    if (brk (0) < 0) {
       return (void *) -1;
-    else
+    } else {
       __endOfHeap = __curbrk;
+    }
+  }
 
   if (increment == 0) {
     DLOG(NOISE, "LH: sbrk returning %p\n", __curbrk);
