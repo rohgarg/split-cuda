@@ -27,6 +27,7 @@ sbrk(intptr_t increment)
   if (lowerHalfSbrkWrapper == (__typeof__(&sbrk)) - 1) {
     lowerHalfSbrkWrapper = (__typeof__(&sbrk))lhInfo.lhSbrk;
   }
+  // TODO: Switch fs context
   return lowerHalfSbrkWrapper(increment);
 }
 
@@ -40,6 +41,7 @@ mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
   if (lowerHalfMmapWrapper == (__typeof__(&mmap)) - 1) {
     lowerHalfMmapWrapper = (__typeof__(&mmap))lhInfo.lhMmap;
   }
+  // TODO: Switch fs context
   return lowerHalfMmapWrapper(addr, length, prot, flags, fd, offset);
 }
 
