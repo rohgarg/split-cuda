@@ -27,11 +27,12 @@ cuInit(unsigned int Flags)
   if (!initialized) {
     initialize_wrappers();
   }
-  JUMP_TO_LOWER_HALF(lhInfo.lhFsAddr);
   if (cuInitFnc == (__typeof__(&cuInit)) - 1) {
     LhDlsym_t dlsymFptr = (LhDlsym_t)lhInfo.lhDlsym;
     cuInitFnc = (__typeof__(&cuInit))dlsymFptr(Cuda_Fnc_cuInit);
   }
+  // XXX: Don't need to change the fs register for the dlsym call
+  JUMP_TO_LOWER_HALF(lhInfo.lhFsAddr);
   rc = cuInitFnc(Flags);
   RETURN_TO_UPPER_HALF();
   return rc;
@@ -40,16 +41,17 @@ cuInit(unsigned int Flags)
 cudaError_t
 cudaMalloc(void **pointer, size_t size)
 {
-  CUresult rc;
+  cudaError_t rc;
   static __typeof__(&cudaMalloc) cudaMallocFnc = (__typeof__(&cudaMalloc)) - 1;
   if (!initialized) {
     initialize_wrappers();
   }
-  JUMP_TO_LOWER_HALF(lhInfo.lhFsAddr);
   if (cudaMallocFnc == (__typeof__(&cudaMalloc)) - 1) {
     LhDlsym_t dlsymFptr = (LhDlsym_t)lhInfo.lhDlsym;
     cudaMallocFnc = (__typeof__(&cudaMalloc))dlsymFptr(Cuda_Fnc_cudaMalloc);
   }
+  // XXX: Don't need to change the fs register for the dlsym call
+  JUMP_TO_LOWER_HALF(lhInfo.lhFsAddr);
   rc = cudaMallocFnc(pointer, size);
   RETURN_TO_UPPER_HALF();
   return rc;
