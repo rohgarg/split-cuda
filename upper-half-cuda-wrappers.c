@@ -22,7 +22,7 @@
 CUresult
 cuInit(unsigned int Flags)
 {
-  CUresult rc;
+  CUresult rc = 0;
   static __typeof__(&cuInit) cuInitFnc = (__typeof__(&cuInit)) - 1;
   if (!initialized) {
     initialize_wrappers();

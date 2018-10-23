@@ -98,7 +98,6 @@ skipeol:
 static char
 readChar(int fd)
 {
-  int errno;
   char c;
   int rc;
 
