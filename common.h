@@ -103,7 +103,8 @@ extern LowerHalfInfo_t lhInfo;
 #define LH_FILE_NAME "./addr.bin"
 
 #define FOREACH_FNC(MACRO) \
-    MACRO(cuInit)
+    MACRO(cuInit) \
+    MACRO(cudaMalloc)
 
 #define GENERATE_ENUM(ENUM) Cuda_Fnc_##ENUM,
 #define GENERATE_FNC_PTR(FNC) &FNC,

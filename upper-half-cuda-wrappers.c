@@ -9,12 +9,15 @@
 #include <sys/types.h>
 
 #include <cuda.h>
+#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
 
 #include "common.h"
 #include "upper-half-wrappers.h"
 #include "upper-half-cuda-wrappers.h"
 
 #undef cuInit
+#undef cudaMalloc
 
 CUresult
 cuInit(unsigned int Flags)
@@ -30,6 +33,24 @@ cuInit(unsigned int Flags)
     cuInitFnc = (__typeof__(&cuInit))dlsymFptr(Cuda_Fnc_cuInit);
   }
   rc = cuInitFnc(Flags);
+  RETURN_TO_UPPER_HALF();
+  return rc;
+}
+
+cudaError_t
+cudaMalloc(void **pointer, size_t size)
+{
+  CUresult rc;
+  static __typeof__(&cudaMalloc) cudaMallocFnc = (__typeof__(&cudaMalloc)) - 1;
+  if (!initialized) {
+    initialize_wrappers();
+  }
+  JUMP_TO_LOWER_HALF(lhInfo.lhFsAddr);
+  if (cudaMallocFnc == (__typeof__(&cudaMalloc)) - 1) {
+    LhDlsym_t dlsymFptr = (LhDlsym_t)lhInfo.lhDlsym;
+    cudaMallocFnc = (__typeof__(&cudaMalloc))dlsymFptr(Cuda_Fnc_cudaMalloc);
+  }
+  rc = cudaMallocFnc(pointer, size);
   RETURN_TO_UPPER_HALF();
   return rc;
 }

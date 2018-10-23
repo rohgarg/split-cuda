@@ -12,6 +12,7 @@
 
 #include "common.h"
 #include "custom-loader.h"
+#include "kernel-loader.h"
 
 // Uses ELF Format.  For background, read both of:
 //  * http://www.skyfree.org/linux/references/ELF_Format.pdf
@@ -257,7 +258,7 @@ map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr, void *ld_so_addr)
   // FIXME:  On first load segment, we should map 0x400000 (2*phdr.p_align),
   //         and then unmap the unused portions later after all the
   //         LOAD segments are mapped.  This is what ld.so would do.
-  rc2 = mmap((void *)addr, size, prot, MAP_PRIVATE, fd, offset);
+  rc2 = mmapWrapper((void *)addr, size, prot, MAP_PRIVATE, fd, offset);
   if (rc2 == MAP_FAILED) {
     DLOG(ERROR, "Failed to map memory region at %p. Error:%s\n",
          (void*)addr, strerror(errno));
@@ -289,7 +290,7 @@ map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr, void *ld_so_addr)
     void *base = (void*)startBss;
     size_t len = endBss - startBss;
     flags |= MAP_ANONYMOUS; // This should give us 0-ed out pages
-    rc2 = mmap(base, len, prot, flags, -1, 0);
+    rc2 = mmapWrapper(base, len, prot, flags, -1, 0);
     if (rc2 == MAP_FAILED) {
       DLOG(ERROR, "Failed to map memory region at %p. Error:%s\n",
            (void*)startBss, strerror(errno));
