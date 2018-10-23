@@ -113,7 +113,7 @@ in the [TODO](#todo) section.
 
 ### Running the code
 
-1. Update `RTLD_PATH` and `CUDA_INCLUDE_PATH` in the Makefile.
+1. Update the variables at the top of the Makefile to correspond to your system.
 2. Run `make restart` to build and run the code.
 
 ### Known issues
