@@ -52,8 +52,8 @@ safeLoadLib(const char *name)
   ld_so_fd = open(elf_interpreter, O_RDONLY);
   info.baseAddr = load_elf_interpreter(ld_so_fd, elf_interpreter,
                                         &ld_so_entry, ld_so_addr, &info);
-  info.mmapAddr = info.baseAddr + get_symbol_offset(ld_so_fd, name, "mmap");
-  info.sbrkAddr = info.baseAddr + get_symbol_offset(ld_so_fd, name, "sbrk");
+  info.mmapAddr = (VA)info.baseAddr + get_symbol_offset(ld_so_fd, name, "mmap");
+  info.sbrkAddr = (VA)info.baseAddr + get_symbol_offset(ld_so_fd, name, "sbrk");
   // FIXME: The ELF Format manual says that we could pass the ld_so_fd to ld.so,
   //   and it would use that to load it.
   close(ld_so_fd);
@@ -92,6 +92,7 @@ get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
   for (i = 0; i < elf_hdr.e_phnum; i++) {
     assert(i < elf_hdr.e_phnum);
     rc = read(fd, &phdr, sizeof(phdr)); // Read consecutive program headers
+    assert(rc == sizeof(phdr));
 #ifdef UBUNTU
     if (phdr.p_type == PT_INTERP) break;
   }
@@ -199,6 +200,7 @@ load_elf_interpreter(int fd, char *elf_interpreter,
   lseek(fd, phoff, SEEK_SET);
   for (i = 0; i < elf_hdr.e_phnum; i++ ) {
     rc = read(fd, &phdr, sizeof(phdr)); // Read consecutive program headers
+    assert(rc == sizeof(phdr));
     if (phdr.p_type == PT_LOAD) {
       // PT_LOAD is the only type of loadable segment for ld.so
       if (firstTime) {
@@ -210,7 +212,7 @@ load_elf_interpreter(int fd, char *elf_interpreter,
     }
   }
   info->phnum = elf_hdr.e_phnum;
-  info->phdr = baseAddr + elf_hdr.e_phoff;
+  info->phdr = (VA)baseAddr + elf_hdr.e_phoff;
   return baseAddr;
 }
 

@@ -9,12 +9,6 @@
 static void *__curbrk;
 static void *__endOfHeap = 0;
 
-void*
-getEndOfHeap()
-{
-  return __curbrk;
-}
-
 void
 setEndOfHeap(void *addr)
 {
@@ -53,16 +47,18 @@ sbrkWrapper(intptr_t increment)
       return (void *) -1;
     }
 
-  if (oldbrk + increment > __endOfHeap) {
-    if (mmapWrapper(__endOfHeap, ROUND_UP(oldbrk + increment - __endOfHeap),
-             PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS,
-             -1, 0) < 0) {
+  if ((VA)oldbrk + increment > (VA)__endOfHeap) {
+    if (mmapWrapper(__endOfHeap,
+                    ROUND_UP((VA)oldbrk + increment - (VA)__endOfHeap),
+                    PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS,
+                    -1, 0) == MAP_FAILED) {
        return (void *) -1;
     }
   }
 
-  __endOfHeap = (void*)ROUND_UP(oldbrk + increment);
-  __curbrk = oldbrk + increment;
+  __endOfHeap = (void*)ROUND_UP((VA)oldbrk + increment);
+  __curbrk = (VA)oldbrk + increment;
 
   DLOG(NOISE, "LH: sbrk returning %p\n", oldbrk);
 

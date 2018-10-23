@@ -84,7 +84,7 @@ runRtld()
   }
   DLOG(INFO, "New heap mapped at: %p\n", newHeap);
 
-  setEndOfHeap(newHeap + PAGE_SIZE);
+  setEndOfHeap((VA)newHeap + PAGE_SIZE);
   rc = insertTrampoline(ldso.mmapAddr, &mmapWrapper);
   if (rc < 0) {
     DLOG(ERROR, "Error inserting trampoline for mmap. Exiting...\n");
@@ -163,6 +163,10 @@ getProcStatField(enum Procstat_t type, char *out, size_t len)
   int fd, num_read;
 
   fd = open(procPath, O_RDONLY);
+  if (fd < 0) {
+    DLOG(ERROR, "Failed to open %s. Error: %s\n", procPath, strerror(errno));
+    return;
+  }
 
   num_read = read(fd, sbuf, sizeof sbuf - 1);
   close(fd);
@@ -170,15 +174,16 @@ getProcStatField(enum Procstat_t type, char *out, size_t len)
   sbuf[num_read] = '\0';
 
   field_str = strtok(sbuf, " ");
-  while (field_str != NULL && field_counter != type) {
-    if (field_counter == type) {
-      break;
-    }
+  while (field_str && field_counter != type) {
     field_str = strtok(NULL, " ");
     field_counter++;
   }
 
-  strncpy(out, field_str, len);
+  if (field_str) {
+    strncpy(out, field_str, len);
+  } else {
+    DLOG(ERROR, "Failed to parse %s.\n", procPath);
+  }
 }
 
 // Returns the [stack] area by reading the proc maps
@@ -456,7 +461,7 @@ insertTrampoline(void *from_addr, void *to_addr)
 
   void *page_base = (void *)ROUND_DOWN(from_addr);
   int page_length = PAGE_SIZE;
-  if (from_addr + sizeof(asm_jump) - page_base > PAGE_SIZE) {
+  if ((VA)from_addr + sizeof(asm_jump) - (VA)page_base > PAGE_SIZE) {
     // The patching instructions cross page boundary. View page as double size.
     page_length = 2 * PAGE_SIZE;
   }
@@ -470,7 +475,7 @@ insertTrampoline(void *from_addr, void *to_addr)
 
   // Now, do the patching
   memcpy(from_addr, asm_jump, sizeof(asm_jump));
-  memcpy(from_addr + addr_offset, &to_addr, sizeof(&to_addr));
+  memcpy((VA)from_addr + addr_offset, &to_addr, sizeof(&to_addr));
 
   // Finally, remove the write permissions
   rc = mprotect(page_base, page_length, PROT_READ | PROT_EXEC);

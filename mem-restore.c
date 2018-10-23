@@ -78,22 +78,22 @@ restoreMemoryRegion(int ckptfd, const Area* area)
   addr = mmapWrapper(area->addr, area->size, area->prot | PROT_WRITE,
                      MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (addr == MAP_FAILED) {
-    DLOG(ERROR, "Mapping failed for memory region (%s) at: %p of: %lu bytes. "
+    DLOG(ERROR, "Mapping failed for memory region (%s) at: %p of: %zu bytes. "
          "Error: %s\n", area->name, area->addr, area->size, strerror(errno));
     return -1;
   }
   // Read in the data
   bytes = readAll(ckptfd, area->addr, area->size);
   if (bytes < area->size) {
-    DLOG(ERROR, "Read failed for memory region (%s) at: %p of: %lu bytes. "
+    DLOG(ERROR, "Read failed for memory region (%s) at: %p of: %zu bytes. "
          "Error: %s\n", area->name, area->addr, area->size, strerror(errno));
     return -1;
   }
   // Restore region permissions
   int rc = mprotect(area->addr, area->size, area->prot);
-  if (bytes < area->size) {
-    DLOG(ERROR, "Restore perms failed for memory region (%s) at: %p "
-         "of: %lu bytes. Error: %s\n",
+  if (rc < 0) {
+    DLOG(ERROR, "Failed to restore perms for memory region (%s) at: %p "
+         "of: %zu bytes. Error: %s\n",
          area->name, area->addr, area->size, strerror(errno));
     return -1;
   }

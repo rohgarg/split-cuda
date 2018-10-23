@@ -41,7 +41,7 @@ mmapWrapper(void *addr, size_t length, int prot,
     mmaps[numRegions].addr = ret;
     mmaps[numRegions].len = length;
     numRegions = (numRegions + 1) % MAX_TRACK;
-    DLOG(NOISE, "LH: mmap (%d): %p @ 0x%lx\n", numRegions, ret, length);
+    DLOG(NOISE, "LH: mmap (%d): %p @ %zu\n", numRegions, ret, length);
   }
   return ret;
 }

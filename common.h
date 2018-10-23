@@ -28,6 +28,8 @@ do {                                                                           \
   }                                                                            \
 } while(0)
 
+typedef char* VA;  /* VA = virtual address */
+
 // Based on the entries in /proc/<pid>/stat as described in `man 5 proc`
 enum Procstat_t
 {
