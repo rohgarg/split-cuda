@@ -1,5 +1,19 @@
 # Verifying Split-Process Approach for Checkpoint-Restart for CUDA
 
+## Table of Contents
+
+* [Idea](#idea)
+* [High-level Design](#high-level-design)
+  * [Start up](#start-up)
+  * [Runtime logic](#runtime-logic)
+  * [Checkpoint algorithm](#checkpoint-algorithm)
+  * [Restart algorithm](#restart-algorithm)
+* [TODO](#todo)
+* [Results](#results)
+* [Appendix](#appendix)
+  * [Running the code](#running-the-code)
+  * [Known issues](#known-issues)
+
 ## Idea
 
 The idea here is to verify the feasibility of checkpoint-restart of CUDA
@@ -77,12 +91,35 @@ Finally, we call `setcontext()` to jump back to the upper half.
 
 ## TODO
 
-- [x] Add wrappers/trampolines around mmap/sbrk functions for upper-half's
+* [x] Add wrappers/trampolines around mmap/sbrk functions for upper-half's
        libc. In addition to lower-half's ld.so, lower-half's libc can also
        make these calls. We want to keep track of mmaps and "virtualize"
        the sbrk calls in order to force it to use the lower-half's heap.
-- [x] Add a dlsym-like API in the lower half to figure out addresses of CUDA API
-- [x] Test calling a CUDA function (through lower-half's dlsym API) from the
+* [x] Add a dlsym-like API in the lower half to figure out addresses of CUDA API
+* [x] Test calling a CUDA function (through lower-half's dlsym API) from the
        upper half
-- [x] Add checkpoint-restart logic from mini-DMTCP assignment
-- [x] Test full checkpoint-restart functionality
+* [x] Add checkpoint-restart logic from mini-DMTCP assignment
+* [x] Test full checkpoint-restart functionality
+* [ ] Debug the crash in `printf()` immediately after restart in target `main()`
+* [ ] Debug the non-working DLOGs in lower half post restart
+* [ ] Debug checkpoint-restart with ASLR enabled
+
+## Results
+
+Basic checkpoint-restart works -- with some caveats. See the list of open items
+in the [TODO](#todo) section.
+
+## Appendix
+
+### Running the code
+
+1. Update `RTLD_PATH` and `CUDA_INCLUDE_PATH` in the Makefile.
+2. Run `make restart` to build and run the code.
+
+### Known issues
+
+1. The call to `printf()` in the target executable's `main()` function segfaults
+   after restart. The later `printf()` calls work fine.
+2. DLOGs in the lower half don't print any output after restart.
+3. Restart segfaults if ASLR is enabled; it's probably because of address
+   conflicts.
