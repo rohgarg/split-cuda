@@ -14,6 +14,7 @@
 
 #include "common.h"
 #include "ckpt-restart.h"
+#include "kernel-loader.h"
 #include "procmapsutils.h"
 #include "utils.h"
 
@@ -47,6 +48,7 @@ restoreFs(void *fs)
          strerror(errno));
     return -1;
   }
+  return rc;
 }
 
 static int
@@ -70,8 +72,11 @@ restoreMemoryRegion(int ckptfd, const Area* area)
   ssize_t bytes = 0;
 
   // Temporarily map with write permissions
-  addr = mmap(area->addr, area->size, area->prot | PROT_WRITE,
-              MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  // 
+  // NOTE: We mmap using our wrapper to track the upper half regions. This
+  // enables the upper half to request for another checkpoint post restart.
+  addr = mmapWrapper(area->addr, area->size, area->prot | PROT_WRITE,
+                     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (addr == MAP_FAILED) {
     DLOG(ERROR, "Mapping failed for memory region (%s) at: %p of: %lu bytes. "
          "Error: %s\n", area->name, area->addr, area->size, strerror(errno));
