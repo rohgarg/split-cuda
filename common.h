@@ -82,13 +82,22 @@ extern LowerHalfInfo_t lhInfo;
 #define JUMP_TO_LOWER_HALF(lhFs)                                               \
   do {                                                                         \
   unsigned long upperHalfFs;                                                   \
-  syscall(SYS_arch_prctl, ARCH_GET_FS, &upperHalfFs);                          \
-  syscall(SYS_arch_prctl, ARCH_SET_FS, lhFs);
+  int rc = syscall(SYS_arch_prctl, ARCH_GET_FS, &upperHalfFs);                 \
+  if (rc < 0) {                                                                \
+    printf("failed to get fs: %d\n", errno);                                   \
+  }                                                                            \
+  rc = syscall(SYS_arch_prctl, ARCH_SET_FS, lhFs);                             \
+  if (rc < 0) {                                                                \
+    printf("failed to set fs: %d\n", errno);                                   \
+  }                                                                            \
 
 // Helper macro to be used whenever making a returning from the lower half to
 // the upper half.
 #define RETURN_TO_UPPER_HALF()                                                 \
-  syscall(SYS_arch_prctl, ARCH_SET_FS, &upperHalfFs);                          \
+  rc = syscall(SYS_arch_prctl, ARCH_SET_FS, upperHalfFs);                      \
+  if (rc < 0) {                                                                \
+    printf("failed to set fs: %d\n", errno);                                   \
+  }                                                                            \
   } while (0)
 
 #define LH_FILE_NAME "./addr.bin"

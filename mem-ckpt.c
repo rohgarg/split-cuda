@@ -72,11 +72,11 @@ checkpointHandler(int signal, siginfo_t *info, void *ctx)
     getFs(&st.fsAddr);
     checkpointContext(ckptfd, &st);
     checkpointMemory(ckptfd);
+    close(ckptfd);
   } else {
    // We are running the restart code
    state = CKPT; // Reset state again for subsequent checkpoints
    reset_wrappers();
-   return;
   }
 }
 
@@ -120,7 +120,8 @@ skipRegion(const Area *area)
       // large memory region into multiple by calling mprotect on subregions
       // in the large region. We need to fix this.
       if (array[i].addr == area->addr ||
-          ((uintptr_t)array[i].addr + array[i].len) <= (uintptr_t)area->endAddr)
+          (((uintptr_t)array[i].addr + array[i].len) ==
+            (uintptr_t)area->endAddr))
       {
         return 0;
       }

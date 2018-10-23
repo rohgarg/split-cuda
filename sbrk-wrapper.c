@@ -52,7 +52,7 @@ sbrkWrapper(intptr_t increment)
     }
 
   if (oldbrk + increment > __endOfHeap) {
-    if (mmap(__endOfHeap, ROUND_UP(oldbrk + increment - __endOfHeap),
+    if (mmapWrapper(__endOfHeap, ROUND_UP(oldbrk + increment - __endOfHeap),
              PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS,
              -1, 0) < 0) {
        return (void *) -1;
