@@ -31,7 +31,7 @@ sbrkWrapper(intptr_t increment)
 {
   void *oldbrk;
 
-  DLOG(NOISE, "LH: sbrk wrapper called with %p\n", increment);
+  DLOG(NOISE, "LH: sbrk called with 0x%lx\n", increment);
 
   if (__curbrk == NULL)
     if (brk (0) < 0)
@@ -39,8 +39,10 @@ sbrkWrapper(intptr_t increment)
     else
       __endOfHeap = __curbrk;
 
-  if (increment == 0)
+  if (increment == 0) {
+    DLOG(NOISE, "LH: sbrk returning %p\n", __curbrk);
     return __curbrk;
+  }
 
   oldbrk = __curbrk;
   if (increment > 0
@@ -61,6 +63,8 @@ sbrkWrapper(intptr_t increment)
 
   __endOfHeap = (void*)ROUND_UP(oldbrk + increment);
   __curbrk = oldbrk + increment;
+
+  DLOG(NOISE, "LH: sbrk returning %p\n", oldbrk);
 
   return oldbrk;
 }

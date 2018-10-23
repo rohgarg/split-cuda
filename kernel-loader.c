@@ -74,7 +74,7 @@ runRtld()
     DLOG(ERROR, "Error creating new stack for RTLD. Exiting...\n");
     exit(-1);
   }
-  DLOG(INFO, "New stack mapped at: %p\n", (void*)ROUND_DOWN(newStack));
+  DLOG(INFO, "New stack start at: %p\n", newStack);
 
   // Create new heap region to be used by RTLD
   void *newHeap = createNewHeapForRtld(&ldso);
@@ -212,6 +212,9 @@ patchAuxv(ElfW(auxv_t) *av, unsigned long phnum,
         break;
       case AT_ENTRY:
         av->a_un.a_val = entry;
+        break;
+      case AT_RANDOM:
+        DLOG(NOISE, "AT_RANDOM value: 0%lx\n", av->a_un.a_val);
         break;
       default:
         break;
@@ -369,6 +372,7 @@ createNewStackForRtld(const DynObjInfo_t *info)
     DLOG(ERROR, "Failed to mmap new stack region: %s\n", strerror(errno));
     return NULL;
   }
+  DLOG(INFO, "New stack mapped at: %p\n", newStack);
 
   // 3. Get pointer to the beginning of the stack in the new stack region
   // The idea here is to look at the beginning of stack in the original

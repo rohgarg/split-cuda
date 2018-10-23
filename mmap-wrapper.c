@@ -32,7 +32,6 @@ mmapWrapper(void *addr, size_t length, int prot,
             int flags, int fd, off_t offset)
 {
   void *ret = MAP_FAILED;
-  DLOG(NOISE, "LH: mmap wrapper called with %p\n", addr);
   if (offset & MMAP_OFF_MASK) {
     errno = EINVAL;
     return ret;
@@ -42,6 +41,7 @@ mmapWrapper(void *addr, size_t length, int prot,
     mmaps[numRegions].addr = ret;
     mmaps[numRegions].len = length;
     numRegions = (numRegions + 1) % MAX_TRACK;
+    DLOG(NOISE, "LH: mmap (%d): %p @ 0x%lx\n", numRegions, ret, length);
   }
   return ret;
 }
