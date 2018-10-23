@@ -1,3 +1,4 @@
+#define _GNU_SOURCE // For MAP_ANONYMOUS
 #include <errno.h>
 #include <stddef.h>
 #include <sys/mman.h>

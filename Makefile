@@ -11,7 +11,7 @@ TARGET_OBJS=target.o
 TARGET_PRELOAD_LIB_OBJS=upper-half-wrappers.o upper-half-cuda-wrappers.o mem-ckpt.o procmapsutils.o utils.o
 
 NVCC_FLAGS=-Xlinker -Ttext-segment -Xlinker 0x800000 --cudart shared 
-CFLAGS=-g3 -O0 -fPIC -I. -I${CUDA_INCLUDE_PATH} -c -std=gnu11
+CFLAGS=-g3 -O0 -fPIC -I. -I${CUDA_INCLUDE_PATH} -c -std=gnu11 -Wall -Werror
 KERNEL_LOADER_CFLAGS=-DSTANDALONE
 
 KERNEL_LOADER_BIN=kernel-loader.exe

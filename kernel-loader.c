@@ -261,7 +261,6 @@ deepCopyStack(void *newStack, const void *origStack, size_t len,
   int  origArgc          = *(int*)origArgcAddr;
   char **origArgv        = (void*)GET_ARGV_ADDR(origStackEnd);
   const char **origEnv   = (void*)GET_ENV_ADDR(origArgv, origArgc);
-  ElfW(auxv_t) *origAuxv = GET_AUXV_ADDR(origEnv);
 
   void *newArgcAddr     = (void*)GET_ARGC_ADDR(newStackEnd);
   int  newArgc          = *(int*)newArgcAddr;
