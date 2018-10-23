@@ -41,7 +41,7 @@ cuInit(unsigned int Flags)
 cudaError_t
 cudaMalloc(void **pointer, size_t size)
 {
-  cudaError_t rc;
+  cudaError_t rc = 0;
   static __typeof__(&cudaMalloc) cudaMallocFnc = (__typeof__(&cudaMalloc)) - 1;
   if (!initialized) {
     initialize_wrappers();

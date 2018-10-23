@@ -15,11 +15,17 @@ KERNEL_LOADER_BIN=kernel-loader.exe
 TARGET_BIN=t.exe
 TARGET_PRELOAD_LIB=libuhwrappers.so
 
+ckpt.img: ${KERNEL_LOADER_BIN} ${TARGET_BIN} ${TARGET_PRELOAD_LIB}
+	UH_PRELOAD=$$PWD/${TARGET_PRELOAD_LIB} TARGET_LD=${RTLD_PATH} ./$< $$PWD/${TARGET_BIN} arg1 arg2 arg3
+
 run: ${KERNEL_LOADER_BIN} ${TARGET_BIN} ${TARGET_PRELOAD_LIB}
 	UH_PRELOAD=$$PWD/${TARGET_PRELOAD_LIB} TARGET_LD=${RTLD_PATH} ./$< $$PWD/${TARGET_BIN} arg1 arg2 arg3
 
 gdb: ${KERNEL_LOADER_BIN} ${TARGET_BIN} ${TARGET_PRELOAD_LIB}
 	UH_PRELOAD=$$PWD/${TARGET_PRELOAD_LIB} TARGET_LD=${RTLD_PATH} gdb --args ./$< $$PWD/${TARGET_BIN} arg1 arg2 arg3
+
+restart: ${KERNEL_LOADER_BIN} ckpt.img
+	UH_PRELOAD=$$PWD/${TARGET_PRELOAD_LIB} TARGET_LD=${RTLD_PATH} ./$< --restore ./ckpt.img
 
 .c.o:
 	gcc ${CFLAGS} $< -o $@
@@ -49,7 +55,10 @@ dist: clean
 	(dir=`basename $$PWD` && cd .. && tar zcvf $$dir.tgz $$dir)
 	(dir=`basename $$PWD` && ls -l ../$$dir.tgz)
 
-clean:
+tidy:
+	rm -f ./ckpt.img
+
+clean: tidy
 	rm -f ${KERNEL_LOADER_OBJS} ${TARGET_OBJS} ${KERNEL_LOADER_BIN} ${TARGET_BIN} ${TARGET_PRELOAD_LIB_OBJS} ${TARGET_PRELOAD_LIB} GTAGS GRTAGS GPATH
 
-.PHONY: dist vi vim clean gdb tags
+.PHONY: dist vi vim clean gdb tags tidy restart run

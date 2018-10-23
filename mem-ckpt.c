@@ -21,7 +21,7 @@
 const char *PROC_SELF_MAPS = "/proc/self/maps";
 const char *CKPT_IMG = "./ckpt.img";
 
-static CkptOrRestore_t state = CKPT;
+static CkptOrRestore_t state = RUNNING;
 
 static void checkpointHandler(int , siginfo_t *, void *);
 static int skipRegion(const Area *);
@@ -30,6 +30,7 @@ static ssize_t writeMemoryRegion(int , const Area *);
 static void getSp(void **sp);
 static void getFs(void *fs);
 static void checkpointContext(int , const CkptRestartState_t *);
+static ssize_t writeRelevantMemoryRegion(int , const Area *);
 
 __attribute__ ((constructor))
 void
@@ -46,6 +47,22 @@ installCkptHandler()
          "Exiting...\n", strerror(errno));
     exit(-1);
   }
+  state = RUNNING;
+}
+
+#undef doCheckpoint
+
+// Public API for application-initiated checkpointing
+
+CkptOrRestore_t
+doCheckpoint()
+{
+  checkpointHandler(12, NULL, NULL);
+  CkptOrRestore_t tempState = state;
+  if (tempState == POST_RESTART || tempState == POST_RESUME) {
+   state = RUNNING; // Reset state again for subsequent checkpoints
+  }
+  return tempState;
 }
 
 // Local functions
@@ -53,7 +70,7 @@ static void
 checkpointHandler(int signal, siginfo_t *info, void *ctx)
 {
   CkptRestartState_t st = {0};
-  int ckptfd = open(CKPT_IMG, O_WRONLY | O_CREAT, 0644);
+  int ckptfd = open(CKPT_IMG, O_WRONLY | O_CREAT | O_TRUNC, 0644);
   if (ckptfd < 0) {
     DLOG(ERROR, "Failed to open ckpt image for saving state. Error: %s\n",
          strerror(errno));
@@ -65,36 +82,82 @@ checkpointHandler(int signal, siginfo_t *info, void *ctx)
          strerror(errno));
     return;
   }
-  if (state == CKPT) {
+  if (state == RUNNING || state == POST_RESUME) {
     // Change the state before copying memory
-    state = RESTORE;
+    state = POST_RESTART;
     getSp(&st.sp);
     getFs(&st.fsAddr);
     checkpointContext(ckptfd, &st);
     checkpointMemory(ckptfd);
     close(ckptfd);
-  } else {
+    // Now, change the state back to resuming to inform the application
+    state = POST_RESUME;
+  } else if (state == POST_RESTART) {
    // We are running the restart code
-   state = CKPT; // Reset state again for subsequent checkpoints
    reset_wrappers();
   }
+}
+
+// Returns true if needle is in the haystack
+static inline int
+regionContains(const void *haystackStart,
+               const void *haystackEnd,
+               const void *needleStart,
+               const void *needleEnd)
+{
+  return needleStart >= haystackStart && needleEnd <= haystackEnd;
 }
 
 static void
 checkpointMemory(int ckptfd)
 {
-  Area area;
   int mapsfd = open("/proc/self/maps", O_RDONLY);
   if(mapsfd == -1) {
     DLOG(ERROR, "Unable to open '%s'. Error %d.", PROC_SELF_MAPS, errno);
     exit(EXIT_FAILURE);
   }
+  Area area;
   while (readMapsLine(mapsfd, &area)) {
     if(!skipRegion(&area)) {
-      writeMemoryRegion(ckptfd, &area);
+      writeRelevantMemoryRegion(ckptfd, &area);
     }
   }
   close(mapsfd);
+}
+
+static ssize_t
+writeRelevantMemoryRegion(int ckptfd, const Area *area)
+{
+  ssize_t rc = 0;
+
+  // Cannot handle regions with no Read perms
+  if (!(area->prot & PROT_READ)) {
+    return rc;
+  }
+
+  // Don't skip the regions mmaped by the upper half
+  if (lhInfo.lhMmapListFptr) {
+    GetMmappedListFptr_t fnc = (GetMmappedListFptr_t) lhInfo.lhMmapListFptr;
+    int numUhRegions = 0;
+    MmapInfo_t *array = fnc(&numUhRegions);
+    for (int i = 0; i < numUhRegions; i++) {
+      void *uhMmapStart = array[i].addr;
+      void *uhMmapEnd = (VA)array[i].addr + array[i].len;
+      if (regionContains(uhMmapStart, uhMmapEnd, area->addr, area->endAddr)) {
+        rc = writeMemoryRegion(ckptfd, area);
+        break;
+      } else if (regionContains(area->addr, area->endAddr,
+                                uhMmapStart, uhMmapEnd)) {
+        Area uhArea = *area;
+        uhArea.addr = (VA)uhMmapStart;
+        uhArea.endAddr = (VA)uhMmapEnd;
+        uhArea.size = array[i].len;
+        rc = writeMemoryRegion(ckptfd, &uhArea);
+        break;
+      }
+    }
+  }
+  return rc;
 }
 
 // Returns 1 for a region to be skipped, 0 otherwise
@@ -109,25 +172,7 @@ skipRegion(const Area *area)
       strstr(area->name, "vsyscall"))
     return 1;
 
-  // Don't skip the regions mmaped by the upper half
-  if (lhInfo.lhMmapListFptr) {
-    GetMmappedListFptr_t fnc = (GetMmappedListFptr_t) lhInfo.lhMmapListFptr;
-    int numUhRegions = 0;
-    MmapInfo_t *array = fnc(&numUhRegions);
-    for (int i = 0; i < numUhRegions; i++) {
-      // FIXME: Either the start addresses should match, or the end addresses
-      // should match. The problem is that the upper half might have split one
-      // large memory region into multiple by calling mprotect on subregions
-      // in the large region. We need to fix this.
-      if (array[i].addr == area->addr ||
-          (((uintptr_t)array[i].addr + array[i].len) ==
-            (uintptr_t)area->endAddr))
-      {
-        return 0;
-      }
-    }
-  }
-  return 1;
+  return 0;
 }
 
 static ssize_t

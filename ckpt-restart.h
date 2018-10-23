@@ -15,9 +15,16 @@ typedef struct __CkptRestartState
 
 typedef enum __CkptOrRestore
 {
-  CKPT,
-  RESTORE,
+  RUNNING,
+  POST_RESUME,
+  POST_RESTART,
 } CkptOrRestore_t;
+
+// Public API:
+//   Returns POST_RESUME, if resuming from a checkpoint,
+//   Returns POST_RESTORE, if restarting from a checkpoint
+CkptOrRestore_t doCheckpoint() __attribute__((weak));
+#define doCheckpoint() (doCheckpoint ? doCheckpoint() : 0)
 
 void restoreCheckpoint(const char *);
 
