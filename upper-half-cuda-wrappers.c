@@ -42,6 +42,7 @@ cudaError_t
 cudaMalloc(void **pointer, size_t size)
 {
   cudaError_t rc = 0;
+  DLOG(NOISE, "cudaMalloc(%p,%zu)\n", *pointer, size);
   static __typeof__(&cudaMalloc) cudaMallocFnc = (__typeof__(&cudaMalloc)) - 1;
   if (!initialized) {
     initialize_wrappers();

@@ -141,7 +141,7 @@ main(int argc, char **argv)
 static void
 printUsage()
 {
-  fprintf(stderr, "Usage: UH_PRELOAD=/path/to/libupperhalfwrappers.so "
+  DLOG(ERROR, "Usage: UH_PRELOAD=/path/to/libupperhalfwrappers.so "
           "TARGET_LD=/path/to/ld.so ./kernel-loader "
           "<target-application> [application arguments ...]\n");
 }
@@ -149,7 +149,7 @@ printUsage()
 static void
 printRestartUsage()
 {
-  fprintf(stderr, "Usage: ./kernel-loader --restore /path/to/ckpt.img\n");
+  DLOG(ERROR, "Usage: ./kernel-loader --restore /path/to/ckpt.img\n");
 }
 
 // Returns the /proc/self/stat entry in the out string (of length len)

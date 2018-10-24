@@ -13,6 +13,17 @@
 #define INFO  2 // Informational logs
 #define ERROR 1 // Highest error/exception level
 
+#define KNRM  "\x1B[0m"
+#define KRED  "\x1B[31m"
+#define KGRN  "\x1B[32m"
+#define KYEL  "\x1B[33m"
+#define KBLU  "\x1B[34m"
+#define KMAG  "\x1B[35m"
+#define KCYN  "\x1B[36m"
+#define KWHT  "\x1B[37m"
+
+static const char *colors[] = {KNRM, KRED, KBLU, KGRN};
+
 #ifndef DEBUG_LEVEL
 // Let's announce errors out loud
 # define DEBUG_LEVEL 1
@@ -23,7 +34,7 @@
 do {                                                                           \
   if (DEBUG_LEVEL) {                                                           \
     if (LOG_LEVEL <= DEBUG_LEVEL)                                              \
-      fprintf(stderr, "[%s +%d]: " fmt, __FILE__,                              \
+      fprintf(stderr, "%s[%s +%d]: " fmt, colors[LOG_LEVEL], __FILE__,         \
               __LINE__ VA_ARGS(__VA_ARGS__));                                  \
   }                                                                            \
 } while(0)
