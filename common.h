@@ -34,7 +34,7 @@ static const char *colors[] = {KNRM, KRED, KBLU, KGRN};
 do {                                                                           \
   if (DEBUG_LEVEL) {                                                           \
     if (LOG_LEVEL <= DEBUG_LEVEL)                                              \
-      fprintf(stderr, "%s[%s +%d]: " fmt, colors[LOG_LEVEL], __FILE__,         \
+      fprintf(stderr, "%s[%s +%d]: " fmt KNRM, colors[LOG_LEVEL], __FILE__,    \
               __LINE__ VA_ARGS(__VA_ARGS__));                                  \
   }                                                                            \
 } while(0)
