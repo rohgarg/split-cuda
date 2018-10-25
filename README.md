@@ -103,8 +103,10 @@ Finally, we call `setcontext()` to jump back to the upper half.
 * [x] Debug the crash in `printf()` immediately after restart in target `main()`
 * [ ] Update the target addresses of trampolines in upper-half's ld.so and libc
       post restart
-* [ ] DLOGs in the lower half seem to crash post restart
+* [x] DLOGs in the lower half seem to crash post restart
 * [ ] Debug checkpoint-restart with ASLR enabled
+* [ ] Create a fake VDSO page for the upper half (See [here](#known-issues)
+      for more details).
 
 ## Results
 
@@ -120,6 +122,9 @@ in the [TODO](#todo) section.
 
 ### Known issues
 
-1. DLOGs in the lower half don't print any output after restart.
-2. Restart segfaults if ASLR is enabled; it's probably because of address
+1. Restart segfaults if ASLR is enabled; it's probably because of address
    conflicts.
+2. The application might crash after restart if it tries to call
+   `gettimeofday()`. Since the upper half is dynamically-linked, it
+   needs the VDSO page for making calls such as, `gettimeofday()`, etc.
+   And the location of the VDSO page might change post restart.
