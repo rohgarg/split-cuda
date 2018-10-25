@@ -33,8 +33,7 @@ main(int argc, char **argv)
   if (ret == POST_RESUME) {
     printf("\nResuming after ckpt...\n");
   } else if (ret == POST_RESTART) {
-    // FIXME: This printf is crashing for some reason; need to debug why?
-    // printf("\nRestarting from a ckpt...\n");
+    printf("\nRestarting from a ckpt...\n");
   }
 
   rc = cudaMalloc(&cuda_ptr2, sizeof(int));

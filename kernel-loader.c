@@ -19,6 +19,7 @@
 #include "custom-loader.h"
 #include "kernel-loader.h"
 #include "procmapsutils.h"
+#include "trampoline_setup.h"
 
 LowerHalfInfo_t lhInfo;
 
@@ -30,7 +31,6 @@ static void* deepCopyStack(void *, const void *, size_t,
                            const DynObjInfo_t *);
 static void* createNewStackForRtld(const DynObjInfo_t *);
 static void* createNewHeapForRtld(const DynObjInfo_t *);
-static int insertTrampoline(void* , void* );
 static void* getEntryPoint(DynObjInfo_t );
 static void patchAuxv(ElfW(auxv_t) *, unsigned long ,
                       unsigned long , unsigned long );
@@ -84,7 +84,7 @@ runRtld()
   }
   DLOG(INFO, "New heap mapped at: %p\n", newHeap);
 
-  setEndOfHeap((VA)newHeap + PAGE_SIZE);
+  setEndOfHeap((VA)newHeap); //  + PAGE_SIZE);
   rc = insertTrampoline(ldso.mmapAddr, &mmapWrapper);
   if (rc < 0) {
     DLOG(ERROR, "Error inserting trampoline for mmap. Exiting...\n");
@@ -423,7 +423,7 @@ createNewHeapForRtld(const DynObjInfo_t *info)
 {
   // We go through the mmap wrapper function to ensure that this gets added
   // to the list of upper half regions to be checkpointed.
-  void *addr = mmapWrapper(0, 10*PAGE_SIZE, PROT_READ | PROT_WRITE,
+  void *addr = mmapWrapper(0, 100*PAGE_SIZE, PROT_READ | PROT_WRITE,
                            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (addr == MAP_FAILED) {
     DLOG(ERROR, "Failed to mmap region. Error: %s\n",
@@ -431,58 +431,6 @@ createNewHeapForRtld(const DynObjInfo_t *info)
     return NULL;
   }
   return addr;
-}
-
-// Returns 0 on success, -1 on failure
-static int
-insertTrampoline(void *from_addr, void *to_addr)
-{
-  int rc;
-#if defined(__x86_64__)
-  unsigned char asm_jump[] = {
-    // mov    $0x1234567812345678,%rax
-    0x48, 0xb8, 0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12,
-    // jmpq   *%rax
-    0xff, 0xe0
-  };
-  // Beginning of address in asm_jump:
-  const int addr_offset = 2;
-#elif defined(__i386__)
-    static unsigned char asm_jump[] = {
-      0xb8, 0x78, 0x56, 0x34, 0x12, // mov    $0x12345678,%eax
-      0xff, 0xe0                    // jmp    *%eax
-  };
-  // Beginning of address in asm_jump:
-  const int addr_offset = 1;
-#else
-# error "Architecture not supported"
-#endif
-
-  void *page_base = (void *)ROUND_DOWN(from_addr);
-  int page_length = PAGE_SIZE;
-  if ((VA)from_addr + sizeof(asm_jump) - (VA)page_base > PAGE_SIZE) {
-    // The patching instructions cross page boundary. View page as double size.
-    page_length = 2 * PAGE_SIZE;
-  }
-
-  // Temporarily add write permissions
-  rc = mprotect(page_base, page_length, PROT_READ | PROT_WRITE | PROT_EXEC);
-  if (rc < 0) {
-    DLOG(ERROR, "mprotect failed: %s\n", strerror(errno));
-    return -1;
-  }
-
-  // Now, do the patching
-  memcpy(from_addr, asm_jump, sizeof(asm_jump));
-  memcpy((VA)from_addr + addr_offset, (void*)&to_addr, sizeof(&to_addr));
-
-  // Finally, remove the write permissions
-  rc = mprotect(page_base, page_length, PROT_READ | PROT_EXEC);
-  if (rc < 0) {
-    DLOG(ERROR, "mprotect failed: %s\n", strerror(errno));
-    return -1;
-  }
-  return rc;
 }
 
 // This function returns the entry point of the ld.so executable given

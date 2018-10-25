@@ -100,8 +100,10 @@ Finally, we call `setcontext()` to jump back to the upper half.
        upper half
 * [x] Add checkpoint-restart logic from mini-DMTCP assignment
 * [x] Test full checkpoint-restart functionality
-* [ ] Debug the crash in `printf()` immediately after restart in target `main()`
-* [ ] Debug the non-working DLOGs in lower half post restart
+* [x] Debug the crash in `printf()` immediately after restart in target `main()`
+* [ ] Update the target addresses of trampolines in upper-half's ld.so and libc
+      post restart
+* [ ] DLOGs in the lower half seem to crash post restart
 * [ ] Debug checkpoint-restart with ASLR enabled
 
 ## Results
@@ -118,8 +120,6 @@ in the [TODO](#todo) section.
 
 ### Known issues
 
-1. The call to `printf()` in the target executable's `main()` function segfaults
-   after restart. The later `printf()` calls work fine.
-2. DLOGs in the lower half don't print any output after restart.
-3. Restart segfaults if ASLR is enabled; it's probably because of address
+1. DLOGs in the lower half don't print any output after restart.
+2. Restart segfaults if ASLR is enabled; it's probably because of address
    conflicts.
