@@ -13,10 +13,14 @@ static void *__endOfHeap = 0;
 void
 setEndOfHeap(void *addr)
 {
-  __curbrk = addr;
-  __endOfHeap = (void*)ROUND_UP(__curbrk);
+  __endOfHeap = (void*)ROUND_UP(addr);
 }
 
+void
+setUhBrk(void *addr)
+{
+  __curbrk = addr;
+}
 
 /* Extend the process's data space by INCREMENT.
    If INCREMENT is negative, shrink data space by - INCREMENT.

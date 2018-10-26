@@ -39,5 +39,6 @@ void* sbrkWrapper(intptr_t );
 void* mmapWrapper(void *, size_t , int , int , int , off_t );
 void* getEndofHeap();
 void setEndOfHeap(void *);
+void setUhBrk(void *);
 
 #endif // ifndef KERNEL_LOADER_H
