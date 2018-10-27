@@ -420,9 +420,11 @@ createNewStackForRtld(const DynObjInfo_t *info)
 static void*
 createNewHeapForRtld(const DynObjInfo_t *info)
 {
+  const uint64_t heapSize = 100 * PAGE_SIZE;
+
   // We go through the mmap wrapper function to ensure that this gets added
   // to the list of upper half regions to be checkpointed.
-  void *addr = mmapWrapper(0, 100*PAGE_SIZE, PROT_READ | PROT_WRITE,
+  void *addr = mmapWrapper(0, heapSize, PROT_READ | PROT_WRITE,
                            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (addr == MAP_FAILED) {
     DLOG(ERROR, "Failed to mmap region. Error: %s\n",
@@ -432,8 +434,8 @@ createNewHeapForRtld(const DynObjInfo_t *info)
   // Add a guard page before the start of heap; this protects
   // the heap from getting merged with a "previous" region.
   mprotect(addr, PAGE_SIZE, PROT_NONE);
-  setUhBrk((VA)newHeap); //  + PAGE_SIZE);
-  setEndOfHeap((void*)((VA)addr + 100*PAGE_SIZE));
+  setUhBrk((void*)((VA)addr + PAGE_SIZE));
+  setEndOfHeap((void*)((VA)addr + heapSize));
   return addr;
 }
 

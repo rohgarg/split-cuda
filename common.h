@@ -26,7 +26,7 @@ static const char *colors[] = {KNRM, KRED, KBLU, KGRN};
 
 #ifndef DEBUG_LEVEL
 // Let's announce errors out loud
-# define DEBUG_LEVEL 1
+# define DEBUG_LEVEL ERROR
 #endif // ifndef DEBUG_LEVEL
 
 #define VA_ARGS(...)  , ##__VA_ARGS__
@@ -99,10 +99,12 @@ extern LowerHalfInfo_t lhInfo;
   if (rc < 0) {                                                                \
     printf("failed to get fs: %d\n", errno);                                   \
   }                                                                            \
+  if (lhFs > 0) {                                                              \
   rc = syscall(SYS_arch_prctl, ARCH_SET_FS, lhFs);                             \
   if (rc < 0) {                                                                \
     printf("failed to set fs: %d\n", errno);                                   \
   }                                                                            \
+  }
 
 // Helper macro to be used whenever making a returning from the lower half to
 // the upper half.
