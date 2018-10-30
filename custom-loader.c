@@ -5,10 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+#include <linux/limits.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #include "common.h"
 #include "custom-loader.h"
@@ -21,7 +23,10 @@
 // The kernel code is here (not recommended for a first reading):
 //    https://github.com/torvalds/linux/blob/master/fs/binfmt_elf.c
 
+#if 0
 static void get_elf_interpreter(int , Elf64_Addr *, char* , void* );
+#endif // if 0
+
 static void* load_elf_interpreter(int , char* , Elf64_Addr *,
                                   void * , DynObjInfo_t* );
 static void* map_elf_interpreter_load_segment(int , Elf64_Phdr , void* );
@@ -30,24 +35,22 @@ static void* map_elf_interpreter_load_segment(int , Elf64_Phdr , void* );
 DynObjInfo_t
 safeLoadLib(const char *name)
 {
+  int ld_so_fd;
+  Elf64_Addr ld_so_entry;
+
   void *ld_so_addr = NULL;
   DynObjInfo_t info = {0};
-
-  int ld_so_fd;
-  Elf64_Addr cmd_entry, ld_so_entry;
-  char elf_interpreter[MAX_ELF_INTERP_SZ];
+  char elf_interpreter[PATH_MAX] = {0};
 
   // FIXME: Do we need to make it dynamic? Is setting this required?
   // ld_so_addr = (void*)0x7ffff81d5000;
   // ld_so_addr = (void*)0x7ffff7dd7000;
   int cmd_fd = open(name, O_RDONLY);
-  get_elf_interpreter(cmd_fd, &cmd_entry, elf_interpreter, ld_so_addr);
+
   // FIXME: The ELF Format manual says that we could pass the cmd_fd to ld.so,
   //   and it would use that to load it.
   close(cmd_fd);
-#ifndef UBUNTU
-   strncpy(elf_interpreter, name, sizeof elf_interpreter);
-#endif
+  strncpy(elf_interpreter, name, sizeof elf_interpreter);
 
   ld_so_fd = open(elf_interpreter, O_RDONLY);
   info.baseAddr = load_elf_interpreter(ld_so_fd, elf_interpreter,
@@ -65,13 +68,13 @@ safeLoadLib(const char *name)
 end:
   // FIXME: The ELF Format manual says that we could pass the ld_so_fd to ld.so,
   //   and it would use that to load it.
-  info.entryPoint = (void*)((unsigned long)info.baseAddr +
-                            (unsigned long)cmd_entry);
+  info.entryPoint = (void*)((uintptr_t)info.baseAddr + (uintptr_t)ld_so_entry);
   return info;
 }
 
 
 // Local functions
+#if 0
 static void
 get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
                     char* elf_interpreter, void *ld_so_addr)
@@ -103,6 +106,7 @@ get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
     assert(rc == sizeof(phdr));
   }
 }
+#endif // if 0
 
 static void*
 load_elf_interpreter(int fd, char *elf_interpreter,
@@ -146,6 +150,7 @@ load_elf_interpreter(int fd, char *elf_interpreter,
   }
   info->phnum = elf_hdr.e_phnum;
   info->phdr = (VA)baseAddr + elf_hdr.e_phoff;
+  *ld_so_entry = elf_hdr.e_entry;
   return baseAddr;
 }
 

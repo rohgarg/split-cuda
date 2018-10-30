@@ -65,7 +65,7 @@ dist: clean
 	(dir=`basename $$PWD` && ls -l ../$$dir.tgz)
 
 tidy:
-	rm -f ./ckpt.img
+	rm -f ./ckpt.img ./addr.bin
 
 clean: tidy
 	rm -f ${KERNEL_LOADER_OBJS} ${TARGET_OBJS} ${KERNEL_LOADER_BIN} \
