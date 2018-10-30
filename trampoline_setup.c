@@ -8,59 +8,33 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <linux/limits.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include "trampoline_setup.h"
 #include "common.h"
+#include "utils.h"
+
+static int getSymbolTable(const char* , Elf64_Shdr* , char** );
+static int readElfSection(int , int , const Elf64_Ehdr* ,
+                          Elf64_Shdr* , char **);
 
 // Returns offset of symbol, or -1 on failure.
 off_t
-get_symbol_offset(int fd, const char *ldname, const char *symbol)
+get_symbol_offset(const char *libname, const char *symbol)
 {
-  int i;
   int rc;
-  Elf64_Shdr sect_hdr;
   Elf64_Shdr symtab;
   Elf64_Sym symtab_entry;
-  // FIXME: This needs to be dynamic
-  char strtab[90000];
 
-  int symtab_found = 0;
+  off_t result = -1;
+  char *strtab = NULL;
 
-  // Reset fd to beginning and parse file header
-  lseek(fd, 0, SEEK_SET);
-  Elf64_Ehdr elf_hdr;
-  rc = read(fd, &elf_hdr, sizeof(elf_hdr));
-  assert(rc == sizeof(elf_hdr));
-
-  // Get start of symbol table and string table
-  Elf64_Off shoff = elf_hdr.e_shoff;
-  lseek(fd, shoff, SEEK_SET);
-  for (i = 0; i < elf_hdr.e_shnum; i++) {
-    rc = read(fd, &sect_hdr, sizeof sect_hdr);
-    assert(rc == sizeof(sect_hdr));
-    if (sect_hdr.sh_type == SHT_SYMTAB) {
-      symtab = sect_hdr;
-      symtab_found = 1;
-    }
-    if (sect_hdr.sh_type == SHT_STRTAB) {
-      int fd2 = open(ldname, O_RDONLY);
-      lseek(fd2, sect_hdr.sh_offset, SEEK_SET);
-      if (sect_hdr.sh_size > sizeof(strtab)) {
-	DLOG(ERROR, "sect_hdr.sh_size =  %zu, sizeof(strtab) = %zu\n",
-             sect_hdr.sh_size, sizeof(strtab));
-	assert(0);
-      }
-      rc = read(fd2, strtab, sect_hdr.sh_size);
-      assert(rc == sect_hdr.sh_size);
-      close(fd2);
-    }
-  }
-
-  if (!symtab_found) {
-    DLOG(ERROR, "Failed to find symbol table in %s\n", ldname);
+  int fd = getSymbolTable(libname, &symtab, &strtab);
+  if (fd < 0) {
+    DLOG(ERROR, "Failed to file debug symbol file for %s\n", libname);
     return -1;
   }
 
@@ -71,11 +45,18 @@ get_symbol_offset(int fd, const char *ldname, const char *symbol)
     assert(rc == sizeof(symtab_entry));
     if (strcmp(strtab + symtab_entry.st_name, symbol) == 0) {
       // found address as offset from base address
-      return symtab_entry.st_value;
+      result = symtab_entry.st_value;
+      break;
     }
   }
-  DLOG(ERROR, "Failed to find symbol (%s) in %s\n", symbol, ldname);
-  return -1;
+  if (strtab) {
+    free(strtab);
+  }
+  close(fd);
+  if (result == -1) {
+    DLOG(ERROR, "Failed to find symbol (%s) in %s\n", symbol, libname);
+  }
+  return result;
 }
 
 // Returns 0 on success, -1 on failure
@@ -83,6 +64,10 @@ int
 insertTrampoline(void *from_addr, void *to_addr)
 {
   int rc;
+
+  if (!from_addr || !to_addr)
+    return -1;
+
 #if defined(__x86_64__)
   unsigned char asm_jump[] = {
     // mov    $0x1234567812345678,%rax
@@ -129,4 +114,107 @@ insertTrampoline(void *from_addr, void *to_addr)
     return -1;
   }
   return rc;
+}
+
+// On success, returns fd of debug file, pointers to symtab and strtab
+// On failures, returns -1
+static int
+getSymbolTable(const char *libname, Elf64_Shdr *symtab, char **strtab)
+{
+  int rc;
+  int fd = -1;
+  int retries = 0;
+  int symtab_found = 0;
+  int foundDebugLib = 0;
+  char debugLibName[PATH_MAX] = {0};
+
+  char *shsectData = NULL;
+  char *lname = (char*)libname;
+
+  Elf64_Shdr sect_hdr;
+
+  while (retries < 2) {
+    fd = open(lname, O_RDONLY);
+
+    // Reset fd to beginning and parse file header
+    lseek(fd, 0, SEEK_SET);
+    Elf64_Ehdr elf_hdr;
+    rc = read(fd, &elf_hdr, sizeof(elf_hdr));
+    assert(rc == sizeof(elf_hdr));
+
+    // Get start of symbol table and string table
+    Elf64_Off shoff = elf_hdr.e_shoff;
+
+    // First, read the data from the shstrtab section
+    // This section contains the strings corresponding to the section names
+    rc = readElfSection(fd, elf_hdr.e_shstrndx,
+                           &elf_hdr, &sect_hdr, &shsectData);
+
+    lseek(fd, shoff, SEEK_SET);
+    for (int i = 0; i < elf_hdr.e_shnum; i++) {
+      rc = read(fd, &sect_hdr, sizeof sect_hdr);
+      assert(rc == sizeof(sect_hdr));
+      if (sect_hdr.sh_type == SHT_SYMTAB) {
+        *symtab = sect_hdr;
+        symtab_found = 1;
+      } else if (sect_hdr.sh_type == SHT_STRTAB &&
+                 !strcmp(&shsectData[sect_hdr.sh_name], ELF_STRTAB_SECT)) {
+        // Note that there are generally three STRTAB sections in ELF binaries:
+        //  1. .dynstr
+        //  2. .shstrtab
+        //  3. .strtab
+        // We only care about the strtab section.
+        Elf64_Shdr tmp;
+        rc = readElfSection(fd, i, &elf_hdr, &tmp, strtab);
+      } else if (sect_hdr.sh_type == SHT_PROGBITS &&
+                 !strcmp(&shsectData[sect_hdr.sh_name], ELF_DEBUGLINK_SECT)) {
+        // If it's the ".gnu_debuglink" section, we read it to figure out
+        // the path to the debug symbol file
+        Elf64_Shdr tmp;
+        char *debugName = NULL;
+        rc = readElfSection(fd, i, &elf_hdr, &tmp, &debugName);
+        assert(debugName);
+        snprintf(debugLibName, tmp.sh_size, "%s/%s",
+                 DEBUG_FILES_PATH, debugName);
+        free(debugName);
+        foundDebugLib = 1;
+      }
+    }
+
+    if (symtab_found || !foundDebugLib) {
+      break;
+    }
+
+    // Let's try again with debug library
+    lname = debugLibName;
+    DLOG(INFO, "Failed to find symbol table in %s. Retrying with %s...\n",
+         libname, lname);
+    retries++;
+  }
+  free(shsectData);
+  if (retries == 2 && !symtab_found) {
+    DLOG(ERROR, "Failed to find symbol table in %s\n", libname);
+    close(fd);
+    return -1;
+  }
+  return fd;
+}
+
+static int
+readElfSection(int fd, int sidx, const Elf64_Ehdr *ehdr,
+               Elf64_Shdr *shdr, char **data)
+{
+  off_t currOff = lseek(fd, 0, SEEK_CUR);
+  off_t sidx_off = ehdr->e_shentsize * sidx + ehdr->e_shoff;
+  lseek(fd, sidx_off, SEEK_SET);
+  int rc = read(fd, shdr, sizeof *shdr);
+  assert(rc == sizeof *shdr);
+  rc = lseek(fd, shdr->sh_offset, SEEK_SET);
+  if (rc > 0) {
+    *data = malloc(shdr->sh_size);
+    rc = lseek(fd, shdr->sh_offset, SEEK_SET);
+    rc = readAll(fd, *data, shdr->sh_size);
+  }
+  lseek(fd, currOff, SEEK_SET);
+  return *data != NULL ? 0 : -1;
 }

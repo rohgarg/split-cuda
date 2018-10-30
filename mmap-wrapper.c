@@ -79,17 +79,16 @@ patchLibc(int fd, const void *base, const char *glibc)
 {
   assert(base);
   assert(fd > 0);
-  const char *MMAP_SYMBOL_NAME = "mmap";
-  const char *SBRK_SYMBOL_NAME = "sbrk";
+
   DLOG(INFO, "Patching libc (%s) @ %p\n", glibc, base);
-  // Save incoming offset
-  off_t saveOffset = lseek(fd, 0, SEEK_CUR);
-  off_t mmapOffset = get_symbol_offset(fd, glibc, MMAP_SYMBOL_NAME);
+  off_t mmapOffset = get_symbol_offset(glibc, MMAP_SYMBOL_NAME);
+  off_t sbrkOffset = get_symbol_offset(glibc, SBRK_SYMBOL_NAME);
+  if (mmapOffset == -1 || sbrkOffset == -1) {
+    DLOG(ERROR, "Failed to find offsets for sbrk and mmap in %s\n", glibc);
+    return;
+  }
   insertTrampoline((VA)base + mmapOffset, &mmapWrapper);
-  off_t sbrkOffset = get_symbol_offset(fd, glibc, SBRK_SYMBOL_NAME);
   insertTrampoline((VA)base + sbrkOffset, &sbrkWrapper);
   DLOG(INFO, "Patched libc (%s) @ %p: offset(sbrk): %zx; offset(mmap): %zx\n",
        glibc, base, sbrkOffset, mmapOffset);
-  // Restore file offset to not upset the caller
-  lseek(fd, saveOffset, SEEK_SET);
 }

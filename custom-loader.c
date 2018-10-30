@@ -52,11 +52,19 @@ safeLoadLib(const char *name)
   ld_so_fd = open(elf_interpreter, O_RDONLY);
   info.baseAddr = load_elf_interpreter(ld_so_fd, elf_interpreter,
                                         &ld_so_entry, ld_so_addr, &info);
-  info.mmapAddr = (VA)info.baseAddr + get_symbol_offset(ld_so_fd, name, "mmap");
-  info.sbrkAddr = (VA)info.baseAddr + get_symbol_offset(ld_so_fd, name, "sbrk");
+  close(ld_so_fd);
+  off_t mmapOffset = get_symbol_offset(name, MMAP_SYMBOL_NAME);
+  off_t sbrkOffset = get_symbol_offset(name, SBRK_SYMBOL_NAME);
+  if (mmapOffset == -1 || sbrkOffset == -1) {
+    DLOG(ERROR, "Failed to find offsets for sbrk and mmap in %s\n", name);
+    goto end;
+  }
+  info.mmapAddr = (VA)info.baseAddr + mmapOffset;
+  info.sbrkAddr = (VA)info.baseAddr + sbrkOffset;
+
+end:
   // FIXME: The ELF Format manual says that we could pass the ld_so_fd to ld.so,
   //   and it would use that to load it.
-  close(ld_so_fd);
   info.entryPoint = (void*)((unsigned long)info.baseAddr +
                             (unsigned long)cmd_entry);
   return info;
@@ -93,28 +101,7 @@ get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
     assert(i < elf_hdr.e_phnum);
     rc = read(fd, &phdr, sizeof(phdr)); // Read consecutive program headers
     assert(rc == sizeof(phdr));
-#ifdef UBUNTU
-    if (phdr.p_type == PT_INTERP) break;
   }
-  lseek(fd, phdr.p_offset, SEEK_SET); // Point to beginning of elf interpreter
-  assert(phdr.p_filesz < MAX_ELF_INTERP_SZ);
-  rc = read(fd, elf_interpreter, phdr.p_filesz);
-  assert(rc == phdr.p_filesz);
-
-  DLOG(INFO, "Interpreter: %s\n", elf_interpreter);
-  { char buf[256] = "/usr/lib/debug";
-    buf[sizeof(buf)-1] = '\0';
-    int rc = 0;
-    rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
-    if (rc != -1 && access(buf, F_OK) == 0) {
-      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-      DLOG(INFO, "Debug symbols for interpreter in: %s\n", buf);
-    }
-  }
-#else // ifdef UBUNTU
-  }
-#endif // ifdef UBUNTU
 }
 
 static void*
