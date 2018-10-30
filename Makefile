@@ -29,13 +29,12 @@ gdb: ${KERNEL_LOADER_BIN} ${TARGET_BIN} ${TARGET_PRELOAD_LIB}
 
 restart: ${KERNEL_LOADER_BIN} ckpt.img disableASLR
 	UH_PRELOAD=$$PWD/${TARGET_PRELOAD_LIB} TARGET_LD=${RTLD_PATH} ./$< --restore ./ckpt.img
-	echo 2 | sudo tee /proc/sys/kernel/randomize_va_space
 
 disableASLR:
-	echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
+	@- [ `cat /proc/sys/kernel/randomize_va_space` == 0 ] || sudo sh -c 'echo 0 > /proc/sys/kernel/randomize_va_space'
 
 enableASLR:
-	echo 2 | sudo tee /proc/sys/kernel/randomize_va_space
+	@- [ `cat /proc/sys/kernel/randomize_va_space` -ne 2 ] && sudo sh -c 'echo 2 > /proc/sys/kernel/randomize_va_space'
 
 .c.o:
 	${CC} ${CFLAGS} $< -o $@
