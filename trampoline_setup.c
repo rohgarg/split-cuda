@@ -174,7 +174,7 @@ getSymbolTable(const char *libname, Elf64_Shdr *symtab, char **strtab)
         char *debugName = NULL;
         rc = readElfSection(fd, i, &elf_hdr, &tmp, &debugName);
         assert(debugName);
-        snprintf(debugLibName, tmp.sh_size, "%s/%s",
+        snprintf(debugLibName, sizeof debugLibName, "%s/%s",
                  DEBUG_FILES_PATH, debugName);
         free(debugName);
         foundDebugLib = 1;
